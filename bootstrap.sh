@@ -5,7 +5,7 @@
 # including WireGuard VPN (optional), SSH for user 'droid', and initial system configuration.
 
 set -e
-LOGFILE="/tmp/bootstrap.log"
+LOGFILE="$HOME/bootstrap.log"
 WG_SERVER_IP="$1" # WireGuard server IP (optional)
 WG_SERVER_PORT="51820" # Default WireGuard port, adjust if needed
 WG_CLIENT_IP="10.0.0.7/24" # Client IP on WireGuard network
