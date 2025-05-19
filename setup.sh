@@ -21,10 +21,20 @@ log() {
 
 # Set proper permissions for the droid home directory
 fix_permissions() {
-    log "Setting full permissions (777) on droid home directory to resolve permission issues..."
-    chmod -R 777 $DROID_HOME
-    chmod -R 777 $DROID_HOME/droid-pkvm
-    log "Permissions set to 777 on $DROID_HOME"
+    log "Setting appropriate permissions on droid home directory..."
+    chmod -R 755 $DROID_HOME
+    chmod -R 755 $DROID_HOME/droid-pkvm
+    
+    # Ensure SSH directory permissions are preserved
+    if [ -d "$DROID_HOME/.ssh" ]; then
+        log "Preserving secure SSH directory permissions..."
+        chmod 700 "$DROID_HOME/.ssh"
+        [ -f "$DROID_HOME/.ssh/authorized_keys" ] && chmod 600 "$DROID_HOME/.ssh/authorized_keys"
+        find "$DROID_HOME/.ssh" -name "id_*" ! -name "*.pub" -exec chmod 600 {} \;
+        find "$DROID_HOME/.ssh" -name "*.pub" -exec chmod 644 {} \;
+    fi
+    
+    log "Permissions set appropriately on $DROID_HOME"
 }
 
 # Check if running as root
@@ -107,9 +117,12 @@ harden_ssh() {
     log "Adding local public key to authorized_keys..."
     cat "$DROID_HOME/.ssh/droid_pkvm.pub" >> "$DROID_HOME/.ssh/authorized_keys"
     
-    # Set extreme permissions - 777 for everything
-    log "Setting full permissions (777) on all SSH files and directories..."
-    chmod -R 777 "$DROID_HOME/.ssh"
+    # Set proper SSH permissions
+    log "Setting proper SSH directory and file permissions..."
+    chmod 700 "$DROID_HOME/.ssh"
+    chmod 600 "$DROID_HOME/.ssh/authorized_keys"
+    chmod 600 "$DROID_HOME/.ssh/droid_pkvm"
+    chmod 644 "$DROID_HOME/.ssh/droid_pkvm.pub"
     
     # Force ownership explicitly using numeric user ID
     log "Setting explicit ownership on SSH files..."
@@ -223,8 +236,15 @@ main() {
     configure_firewall
     
     # Make sure scripts are executable
-    log "Setting proper execution permissions on scripts..."
-    chmod -R 777 $DROID_HOME/droid-pkvm
+    log "Setting executable permissions on scripts..."
+    find $DROID_HOME/droid-pkvm -name "*.sh" -exec chmod +x {} \;
+    
+    # Ensure SSH permissions stay secure
+    log "Ensuring SSH permissions remain secure..."
+    chmod 700 "$DROID_HOME/.ssh"
+    chmod 600 "$DROID_HOME/.ssh/authorized_keys"
+    chmod 600 "$DROID_HOME/.ssh/droid_pkvm"
+    chmod 644 "$DROID_HOME/.ssh/droid_pkvm.pub"
     
     # Clean up existing services to ensure idempotency
     log "Cleaning up any existing services for idempotent execution..."
