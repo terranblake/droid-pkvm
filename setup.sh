@@ -197,6 +197,14 @@ main() {
     log "Setting proper execution permissions on scripts..."
     chmod -R 777 $DROID_HOME/droid-pkvm
     
+    # Clean up existing services to ensure idempotency
+    log "Cleaning up any existing services for idempotent execution..."
+    kubectl delete service -n kubernetes-dashboard dashboard-nodeport 2>/dev/null || true
+    kubectl delete deployment -n monitoring glances 2>/dev/null || true
+    kubectl delete service -n monitoring glances 2>/dev/null || true
+    kubectl delete deployment -n web nginx 2>/dev/null || true
+    kubectl delete service -n web nginx 2>/dev/null || true
+    
     # Run Android detection as root for proper dmesg access
     log "Running Android detection script..."
     ./detect_android.sh
