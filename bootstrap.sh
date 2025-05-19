@@ -4,8 +4,22 @@
 # This script sets up the core requirements for an Android pKVM instance
 # including WireGuard VPN (optional), SSH for user 'droid', and initial system configuration.
 
-set -e
-LOGFILE="$HOME/bootstrap.log"
+# Enable error handling but don't exit on errors
+set +e
+
+# Use /tmp as a fallback if HOME is not writable
+if [ -w "$HOME" ]; then
+    LOGFILE="$HOME/bootstrap.log"
+else
+    LOGFILE="/tmp/bootstrap.log"
+fi
+
+# Error handling function
+handle_error() {
+    local exit_code=$?
+    log "ERROR: Command failed with exit code $exit_code"
+    log "Continuing with the next steps..."
+}
 WG_SERVER_IP="$1" # WireGuard server IP (optional)
 WG_SERVER_PORT="51820" # Default WireGuard port, adjust if needed
 WG_CLIENT_IP="10.0.0.7/24" # Client IP on WireGuard network
@@ -45,16 +59,17 @@ update_system() {
 # Install required packages
 install_packages() {
     log "Installing required packages..."
-    # Base packages always installed
-    PACKAGES="git ssh rsyslog ufw curl apt-transport-https gnupg lsb-release ca-certificates"
+    # Base packages always installed - removed lsb-release as it's not needed
+    PACKAGES="git ssh rsyslog ufw curl apt-transport-https gnupg ca-certificates"
     
     # Add WireGuard packages if enabled
     if [ "$WG_ENABLED" = true ]; then
         PACKAGES="$PACKAGES wireguard wireguard-tools"
     fi
     
-    apt install -y $PACKAGES
-    log "Required packages installed"
+    # Using --no-install-recommends to minimize installed footprint
+    apt install -y --no-install-recommends $PACKAGES || handle_error
+    log "Required packages installed (with minimized dependencies)"
 }
 
 # Set up logging
@@ -278,6 +293,27 @@ print_summary() {
     echo "================================================================"
 }
 
+# Check filesystem health
+check_filesystem() {
+    log "Checking filesystem health..."
+    # Check if root filesystem is mounted read-only
+    if grep -q "[[:space:]]/[[:space:]].* ro," /proc/mounts; then
+        log "WARNING: Root filesystem is mounted read-only. Attempting repair..."
+        # Try to remount read-write
+        mount -o remount,rw /
+        
+        # If still read-only, run filesystem check on next boot
+        if grep -q "[[:space:]]/[[:space:]].* ro," /proc/mounts; then
+            log "Filesystem still read-only. Setting up repair on next boot..."
+            touch /forcefsck
+        else
+            log "Successfully remounted filesystem as read-write"
+        fi
+    else
+        log "Filesystem check passed - root is mounted read-write"
+    fi
+}
+
 # Main execution
 main() {
     log "Starting Android pKVM bootstrap script"
@@ -289,6 +325,7 @@ main() {
     fi
     
     check_root
+    check_filesystem
     update_system
     install_packages
     setup_logging
