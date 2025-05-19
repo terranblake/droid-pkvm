@@ -2,17 +2,23 @@
 
 # Debian WireGuard & SSH Setup Script for Android pKVM
 # This script sets up the core requirements for an Android pKVM instance
-# including WireGuard VPN, SSH for user 'droid', and initial system configuration.
+# including WireGuard VPN (optional), SSH for user 'droid', and initial system configuration.
 
 set -e
 LOGFILE="/tmp/bootstrap.log"
-WG_SERVER_IP="$1" # WireGuard server IP
+WG_SERVER_IP="$1" # WireGuard server IP (optional)
 WG_SERVER_PORT="51820" # Default WireGuard port, adjust if needed
 WG_CLIENT_IP="10.0.0.7/24" # Client IP on WireGuard network
-WG_SERVER_PUBKEY="$2" # WireGuard server's public key
-WG_CLIENT_PUBLICKEY="$3" # WireGuard client's public key
-WG_CLIENT_PRIVATEKEY="$4" # WireGuard client's private key
+WG_SERVER_PUBKEY="$2" # WireGuard server's public key (optional)
+WG_CLIENT_PUBLICKEY="$3" # WireGuard client's public key (optional)
+WG_CLIENT_PRIVATEKEY="$4" # WireGuard client's private key (optional)
 WG_INTERFACE="wg0"
+WG_ENABLED=true
+
+# If any WireGuard parameter is missing, disable WireGuard setup
+if [ -z "$WG_SERVER_IP" ] || [ -z "$WG_SERVER_PUBKEY" ] || [ -z "$WG_CLIENT_PUBLICKEY" ] || [ -z "$WG_CLIENT_PRIVATEKEY" ]; then
+    WG_ENABLED=false
+fi
 
 # Function to log messages
 log() {
@@ -39,7 +45,15 @@ update_system() {
 # Install required packages
 install_packages() {
     log "Installing required packages..."
-    apt install -y git wireguard wireguard-tools ssh rsyslog ufw curl apt-transport-https gnupg lsb-release ca-certificates
+    # Base packages always installed
+    PACKAGES="git ssh rsyslog ufw curl apt-transport-https gnupg lsb-release ca-certificates"
+    
+    # Add WireGuard packages if enabled
+    if [ "$WG_ENABLED" = true ]; then
+        PACKAGES="$PACKAGES wireguard wireguard-tools"
+    fi
+    
+    apt install -y $PACKAGES
     log "Required packages installed"
 }
 
@@ -120,6 +134,11 @@ EOF
 
 # Set up WireGuard
 setup_wireguard() {
+    if [ "$WG_ENABLED" = false ]; then
+        log "WireGuard setup skipped (parameters not provided)"
+        return 0
+    fi
+
     log "Setting up WireGuard..."
 
     log "WireGuard public key: $WG_CLIENT_PUBLICKEY"
@@ -159,7 +178,12 @@ EOF
 configure_firewall() {
     log "Configuring basic firewall..."
     ufw allow 2222/tcp comment "SSH"
-    ufw allow 51820/udp comment "WireGuard"
+    
+    # Add WireGuard rule if enabled
+    if [ "$WG_ENABLED" = true ]; then
+        ufw allow 51820/udp comment "WireGuard"
+    fi
+    
     ufw --force enable
     log "Basic firewall configured"
 }
@@ -181,6 +205,11 @@ clone_repo() {
 
 # Test WireGuard connectivity
 test_wireguard() {
+    if [ "$WG_ENABLED" = false ]; then
+        log "WireGuard testing skipped (not configured)"
+        return 0
+    fi
+
     log "Testing WireGuard connectivity..."
     
     # Check if WireGuard interface is up
@@ -230,18 +259,22 @@ print_summary() {
     local host_ip=$(hostname -I | awk '{print $1}')
     
     echo "======================= BOOTSTRAP COMPLETE ======================="
-    echo "WireGuard Public Key: $WG_CLIENT_PUBLICKEY"
+    if [ "$WG_ENABLED" = true ]; then
+        echo "WireGuard Public Key: $WG_CLIENT_PUBLICKEY"
+        echo "WireGuard Status: $([ $wg_result -eq 0 ] && echo 'WORKING' || echo 'FAILED')"
+    else
+        echo "WireGuard: NOT CONFIGURED (parameters not provided)"
+    fi
     echo ""
     echo "SSH Status: $([ $ssh_result -eq 0 ] && echo 'WORKING' || echo 'FAILED')"
-    echo "WireGuard Status: $([ $wg_result -eq 0 ] && echo 'WORKING' || echo 'FAILED')"
     echo ""
     echo "Access Information:"
     echo "- SSH: ssh droid@$host_ip -p 2222 (password: droid)"
     echo ""
     echo "Next Steps:"
-    echo "1. Run the setup script from your controlling machine to complete the installation:"
-    echo "   cd droid-pkvm"
-    echo "   ./setup.sh $host_ip"
+    echo "1. Run the setup script from the VM to complete the installation:"
+    echo "   cd ~/droid-pkvm"
+    echo "   ./setup.sh"
     echo ""
     echo "Authentication logs are being written to: /etc/log/auth.log"
     echo "================================================================"
@@ -251,11 +284,10 @@ print_summary() {
 main() {
     log "Starting Android pKVM bootstrap script"
     
-    # Validate required parameters
-    if [ -z "$WG_SERVER_IP" ] || [ -z "$WG_SERVER_PUBKEY" ] || [ -z "$WG_CLIENT_PUBLICKEY" ] || [ -z "$WG_CLIENT_PRIVATEKEY" ]; then
-        echo "ERROR: Missing required parameters."
-        echo "Usage: $0 <wg_server_ip> <wg_server_pubkey> <wg_client_pubkey> <wg_client_privkey>"
-        exit 1
+    if [ "$WG_ENABLED" = true ]; then
+        log "WireGuard will be configured with provided parameters"
+    else
+        log "WireGuard setup will be skipped (parameters not provided)"
     fi
     
     check_root
@@ -272,8 +304,12 @@ main() {
     test_ssh
     SSH_RESULT=$?
     
-    test_wireguard
-    WG_RESULT=$?
+    if [ "$WG_ENABLED" = true ]; then
+        test_wireguard
+        WG_RESULT=$?
+    else
+        WG_RESULT=0
+    fi
     
     # Print summary
     print_summary $SSH_RESULT $WG_RESULT
