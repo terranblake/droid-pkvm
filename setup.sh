@@ -59,6 +59,12 @@ validate_params() {
         exit 1
     fi
     
+    # Expand tilde in path if present
+    if [[ "$SSH_PUB_KEY" == "~/"* ]]; then
+        SSH_PUB_KEY="$HOME/${SSH_PUB_KEY:2}"
+        log "Expanded SSH key path to: $SSH_PUB_KEY"
+    fi
+    
     if [ ! -f "$SSH_PUB_KEY" ]; then
         log "ERROR: SSH public key file '$SSH_PUB_KEY' does not exist."
         echo "Usage: $0 <path_to_ssh_pubkey> [dashboard_port] [glances_port] [nginx_port]"
@@ -66,13 +72,43 @@ validate_params() {
         exit 1
     fi
     
+    # Check file size - should be small for a public key
+    KEY_SIZE=$(stat -c%s "$SSH_PUB_KEY" 2>/dev/null || stat -f%z "$SSH_PUB_KEY" 2>/dev/null)
+    if [ -n "$KEY_SIZE" ] && [ "$KEY_SIZE" -gt 10000 ]; then
+        log "WARNING: The key file is unusually large ($KEY_SIZE bytes) for a public key."
+        echo "Please verify you are providing a public key (not a private key or other file)."
+        read -p "Continue anyway? (y/n): " CONFIRM
+        if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+            log "Setup aborted by user"
+            exit 1
+        fi
+    fi
+    
     # Validate the key format
     if ssh-keygen -l -f "$SSH_PUB_KEY" &>/dev/null; then
-        log "SSH public key: $SSH_PUB_KEY (VALID)"
+        KEY_INFO=$(ssh-keygen -l -f "$SSH_PUB_KEY")
+        log "SSH public key: $SSH_PUB_KEY (VALID) - $KEY_INFO"
         SSH_KEY_VALID=true
     else
         log "ERROR: The provided file '$SSH_PUB_KEY' is not a valid SSH public key."
         echo "Please provide a valid SSH public key file."
+        exit 1
+    fi
+    
+    # Validate port numbers
+    if ! [[ "$DASHBOARD_PORT" =~ ^[0-9]+$ ]] || [ "$DASHBOARD_PORT" -lt 1 ] || [ "$DASHBOARD_PORT" -gt 65535 ]; then
+        log "ERROR: Invalid dashboard port number: $DASHBOARD_PORT"
+        exit 1
+    fi
+    
+    if ! [[ "$GLANCES_PORT" =~ ^[0-9]+$ ]] || [ "$GLANCES_PORT" -lt 1 ] || [ "$GLANCES_PORT" -gt 65535 ]; then
+        log "ERROR: Invalid glances port number: $GLANCES_PORT"
+        exit 1
+    fi
+    
+    # NodePort validation - must be in range 30000-32767
+    if ! [[ "$NGINX_PORT" =~ ^[0-9]+$ ]] || [ "$NGINX_PORT" -lt 30000 ] || [ "$NGINX_PORT" -gt 32767 ]; then
+        log "ERROR: Invalid nginx port number: $NGINX_PORT (must be in range 30000-32767 for NodePort)"
         exit 1
     fi
     
@@ -100,6 +136,22 @@ harden_ssh() {
     # Create SSH directory if needed
     mkdir -p "$DROID_HOME/.ssh"
     
+    # Validate key format and content before using it
+    log "Validating the SSH public key format and content..."
+    if ! ssh-keygen -l -f "$SSH_PUB_KEY" &>/dev/null; then
+        log "ERROR: The provided file '$SSH_PUB_KEY' is not a valid SSH public key."
+        echo "Please provide a valid SSH public key file."
+        exit 1
+    fi
+    
+    # Verify the key content contains ssh-rsa, ssh-ed25519, or ssh-dss
+    KEY_CONTENT=$(cat "$SSH_PUB_KEY")
+    if ! echo "$KEY_CONTENT" | grep -qE "^(ssh-rsa|ssh-ed25519|ssh-dss|ecdsa-sha2)"; then
+        log "ERROR: The SSH key does not appear to be a valid public key format."
+        echo "The key should start with ssh-rsa, ssh-ed25519, ecdsa-sha2, or ssh-dss."
+        exit 1
+    fi
+    
     # Add the provided key to authorized_keys
     log "Adding your provided public key to authorized_keys..."
     cat "$SSH_PUB_KEY" > "$DROID_HOME/.ssh/authorized_keys"
@@ -116,6 +168,13 @@ harden_ssh() {
     # Add the local key to authorized_keys too
     log "Adding local public key to authorized_keys..."
     cat "$DROID_HOME/.ssh/droid_pkvm.pub" >> "$DROID_HOME/.ssh/authorized_keys"
+    
+    # Verify keys were properly added
+    log "Verifying keys were added to authorized_keys..."
+    if ! grep -q "$(cat "$SSH_PUB_KEY")" "$DROID_HOME/.ssh/authorized_keys"; then
+        log "ERROR: Failed to add provided key to authorized_keys. Adding again..."
+        cat "$SSH_PUB_KEY" >> "$DROID_HOME/.ssh/authorized_keys"
+    fi
     
     # Set proper SSH permissions
     log "Setting proper SSH directory and file permissions..."
@@ -149,6 +208,17 @@ harden_ssh() {
     # Force less restrictive permissions for user home and SSH configs
     log "Configuring SSH to use less restrictive permission requirements..."
     echo "StrictModes no" >> /etc/ssh/sshd_config
+    
+    # Test SSH configuration
+    log "Testing SSH configuration file syntax..."
+    if ! sshd -t; then
+        log "ERROR: SSH configuration has syntax errors"
+        # Try to fix by resetting to known good config
+        cp /etc/ssh/sshd_config.bak.hardened /etc/ssh/sshd_config
+        echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config
+        echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config
+        echo "StrictModes no" >> /etc/ssh/sshd_config
+    fi
     
     # Restart SSH service to apply changes
     systemctl restart ssh
