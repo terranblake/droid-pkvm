@@ -46,9 +46,17 @@ harden_ssh() {
     
     # Set up authorized_keys with the provided key
     mkdir -p ~/.ssh
-    cat "$SSH_PUB_KEY" >> ~/.ssh/authorized_keys
+    
+    # Ensure proper permissions before adding keys
+    touch ~/.ssh/authorized_keys
     chmod 700 ~/.ssh
     chmod 600 ~/.ssh/authorized_keys
+    
+    # Add the provided key to authorized_keys
+    log "Adding your provided public key to authorized_keys..."
+    cat "$SSH_PUB_KEY" > /tmp/temp_pubkey
+    cat /tmp/temp_pubkey >> ~/.ssh/authorized_keys
+    rm /tmp/temp_pubkey
     
     # Make sure we have a local key for the VM too
     if [ ! -f "$SSH_KEYFILE" ]; then
@@ -61,7 +69,13 @@ harden_ssh() {
     fi
     
     # Add the local key to authorized_keys too
+    log "Adding local public key to authorized_keys..."
     cat "$SSH_KEYFILE.pub" >> ~/.ssh/authorized_keys
+    
+    # Ensure proper ownership and permissions
+    sudo chown -R $(whoami):$(whoami) ~/.ssh
+    chmod 700 ~/.ssh
+    chmod 600 ~/.ssh/authorized_keys
     
     # Disable password authentication
     log "Hardening SSH configuration..."
