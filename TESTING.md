@@ -1,6 +1,61 @@
 # Testing Android pKVM
 
-This document provides guidance on testing whether the VM is genuinely running on an Android device with pKVM.
+This document provides guidance on testing the setup and verifying whether the VM is genuinely running on an Android device with pKVM.
+
+## Testing the Setup
+
+### 1. Testing Bootstrap and Initial Setup
+
+Use these commands to verify the bootstrap phase was successful:
+
+```bash
+# Check SSH service is running
+systemctl status ssh
+
+# Verify WireGuard is running (if configured)
+ip a show wg0
+
+# Check firewall status
+sudo ufw status
+
+# Verify Git repository access
+cd ~/droid-pkvm
+git status
+```
+
+### 2. Testing Kubernetes Setup
+
+Verify Kubernetes components are working properly:
+
+```bash
+# Check node status
+kubectl get nodes
+
+# Check running pods
+kubectl get pods --all-namespaces
+
+# Check services
+kubectl get svc --all-namespaces
+```
+
+### 3. Testing Web Services
+
+Verify the deployed web services are accessible:
+
+```bash
+# Get the VM's IP address
+ip addr
+
+# Check ports are open
+ss -tuln | grep -E "30443|8080|30081"
+
+# Navigate to these URLs in a browser:
+# - Dashboard: http://<vm-ip>:30443
+# - Glances: http://<vm-ip>:8080
+# - Nginx: http://<vm-ip>:30081
+```
+
+## Verifying the Android Environment
 
 ## Automatic Detection
 
@@ -74,4 +129,68 @@ lscpu | grep -i "virtualization\|hyper"
 
 ## Web Dashboard
 
-After setup, the Nginx web dashboard will display all collected evidence under the "Android Environment Evidence" section. This provides a user-friendly way to verify the environment. 
+After setup, the Nginx web dashboard will display all collected evidence under the "Android Environment Evidence" section. This provides a user-friendly way to verify the environment.
+
+## Troubleshooting Tests
+
+### 1. SSH Connection Issues
+
+If you cannot connect via SSH:
+
+```bash
+# Verify SSH port is open
+ss -tuln | grep 2222
+
+# Check SSH service status
+systemctl status ssh
+
+# Check SSH config
+cat /etc/ssh/sshd_config | grep -i "port\|passwordauth\|pubkeyauth"
+
+# Check authorized keys
+cat ~/.ssh/authorized_keys
+```
+
+### 2. Git Repository Issues
+
+If you encounter Git errors about "dubious ownership":
+
+```bash
+# Fix repository permissions
+sudo git config --global --add safe.directory /home/droid/droid-pkvm
+chmod -R 777 ~/droid-pkvm
+
+# Verify Git config
+git config --list | grep safe
+```
+
+### 3. Filesystem Issues
+
+If you encounter read-only filesystem errors:
+
+```bash
+# Check if root is mounted read-only
+mount | grep " / "
+
+# Check system logs for filesystem errors
+dmesg | grep -i "ext4\|filesystem\|remount"
+
+# Run filesystem check (should be done in recovery mode or after reboot)
+sudo e2fsck -fy /dev/vda1
+```
+
+### 4. Network Issues
+
+```bash
+# Check network interfaces
+ip addr
+
+# Test connectivity
+ping -c 3 8.8.8.8
+
+# Check DNS resolution
+nslookup google.com
+
+# If using WireGuard, check its status
+sudo wg show
+```

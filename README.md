@@ -37,8 +37,8 @@ chmod +x bootstrap.sh
 # Navigate to the cloned repository
 cd ~/droid-pkvm
 
-# Run the setup script
-./setup.sh [dashboard_port] [glances_port] [nginx_port]
+# Run the setup script with an SSH public key (REQUIRED)
+sudo ./setup.sh ~/.ssh/droid_pkvm.pub [dashboard_port] [glances_port] [nginx_port]
 ```
 
 ### 3. Remote Access
@@ -77,7 +77,8 @@ Parameters (all optional):
 ### Post-Bootstrap Phase
 
 The setup script:
-- Generates an SSH key and hardens SSH access
+- Validates and uses your provided SSH public key
+- Generates a local SSH key and hardens SSH access
 - Installs Kubernetes (k3s)
 - Installs Helm
 - Collects hardware information and runs Android detection
@@ -86,13 +87,14 @@ The setup script:
 - Deploys Nginx landing page with hardware information
 
 ```bash
-./setup.sh [dashboard_port] [glances_port] [nginx_port]
+sudo ./setup.sh <ssh_pub_key> [dashboard_port] [glances_port] [nginx_port]
 ```
 
-Parameters (all optional):
+Parameters:
+- `ssh_pub_key`: Path to SSH public key file (REQUIRED)
 - `dashboard_port`: Kubernetes Dashboard port (default: 30443)
 - `glances_port`: Glances port (default: 8080)
-- `nginx_port`: Nginx port (default: 8081)
+- `nginx_port`: Nginx port (default: 30081, must be in range 30000-32767)
 
 ## Default Access Information
 
@@ -101,7 +103,7 @@ After setup is complete:
 - SSH: `ssh -i ~/.ssh/your_key -p 2222 droid@<pkvm_ip_address>`
 - Kubernetes Dashboard: `http://<pkvm_ip_address>:30443`
 - Glances: `http://<pkvm_ip_address>:8080`
-- Nginx: `http://<pkvm_ip_address>:8081`
+- Nginx: `http://<pkvm_ip_address>:30081`
 
 The Dashboard token is saved to `~/dashboard-token.txt` on the pKVM instance.
 
@@ -142,16 +144,25 @@ If you encounter issues:
    - Verify WireGuard connectivity (if used)
    - Ensure all required parameters are correct
    - Check network access to GitHub
+   - Fix Git ownership issues with `sudo git config --global --add safe.directory /home/droid/droid-pkvm`
 
 2. **Setup Issues**
    - Verify k3s installation with `kubectl get nodes`
    - Check Helm with `helm version`
    - Review logs with `kubectl logs -n <namespace> <pod-name>`
+   - If SSH key issues occur, ensure you're using a valid public key
+   - Validate your SSH key with `ssh-keygen -l -f <path_to_key>`
 
 3. **Service Access Issues**
    - Verify firewall settings with `sudo ufw status`
    - Check service status with `kubectl get svc --all-namespaces`
    - Verify port availability with `ss -tuln`
+   - Ensure ports are in valid nodePort range (30000-32767)
+
+4. **Filesystem Issues**
+   - Check if root filesystem is mounted read-only with `mount | grep " / "`
+   - Look for filesystem errors with `dmesg | grep -i "ext4\\|filesystem\\|remount"`
+   - Run filesystem check with `sudo e2fsck -fy /dev/vda1` (requires reboot)
 
 ## License
 
