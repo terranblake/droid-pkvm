@@ -50,6 +50,25 @@ helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dash
     --set service.externalPort=80 \
     --set metricsScraper.enabled=true || log "ERROR: Failed to deploy dashboard"
 
+# Create a direct NodePort service for the dashboard to ensure it's accessible
+kubectl apply -f - <<YAML
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard-nodeport
+  namespace: kubernetes-dashboard
+spec:
+  type: NodePort
+  ports:
+  - port: 443
+    targetPort: 8443
+    nodePort: 30443
+  selector:
+    app.kubernetes.io/component: app
+    app.kubernetes.io/instance: kubernetes-dashboard
+    app.kubernetes.io/name: kong
+YAML
+
 # Create service account and dashboard admin
 log "Creating dashboard admin user..."
 kubectl apply -f - <<YAML
