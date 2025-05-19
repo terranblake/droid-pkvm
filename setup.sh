@@ -6,9 +6,10 @@
 
 set -e
 LOGFILE="$(pwd)/setup.log"
-DASHBOARD_PORT="${1:-30443}" # Default port for K3s Dashboard
-GLANCES_PORT="${2:-8080}" # Default port for Glances
-NGINX_PORT="${3:-8081}" # Default port for Nginx
+SSH_PUB_KEY="$1" # Path to SSH public key file
+DASHBOARD_PORT="${2:-30443}" # Default port for K3s Dashboard
+GLANCES_PORT="${3:-8080}" # Default port for Glances
+NGINX_PORT="${4:-8081}" # Default port for Nginx
 SSH_KEYFILE="$HOME/.ssh/droid_pkvm" # Path to store the new SSH key
 
 # Function to log messages
@@ -18,7 +19,16 @@ log() {
 
 # Validate required parameters and environment
 validate_params() {
+    # Check for SSH public key
+    if [ -z "$SSH_PUB_KEY" ] || [ ! -f "$SSH_PUB_KEY" ]; then
+        echo "ERROR: SSH public key file not provided or does not exist."
+        echo "Usage: $0 <path_to_ssh_pubkey> [dashboard_port] [glances_port] [nginx_port]"
+        echo "Example: $0 ~/.ssh/id_ed25519.pub 30443 8080 8081"
+        exit 1
+    fi
+
     log "Starting setup with the following parameters:"
+    log "SSH public key: $SSH_PUB_KEY"
     log "Dashboard port: $DASHBOARD_PORT"
     log "Glances port: $GLANCES_PORT"
     log "Nginx port: $NGINX_PORT"
@@ -32,21 +42,26 @@ validate_params() {
 
 # Generate SSH keypair and harden SSH 
 harden_ssh() {
-    log "Generating SSH keypair at $SSH_KEYFILE..."
+    log "Setting up SSH with provided public key..."
     
-    # Generate SSH keypair if it doesn't exist
+    # Set up authorized_keys with the provided key
+    mkdir -p ~/.ssh
+    cat "$SSH_PUB_KEY" >> ~/.ssh/authorized_keys
+    chmod 700 ~/.ssh
+    chmod 600 ~/.ssh/authorized_keys
+    
+    # Make sure we have a local key for the VM too
     if [ ! -f "$SSH_KEYFILE" ]; then
+        log "Generating local SSH keypair at $SSH_KEYFILE..."
         ssh-keygen -t ed25519 -f "$SSH_KEYFILE" -N "" -C "droid_pkvm_key"
         chmod 600 "$SSH_KEYFILE"
-        log "SSH keypair generated"
+        log "Local SSH keypair generated"
     else
-        log "SSH keypair already exists, using existing key"
+        log "Local SSH keypair already exists, using existing key"
     fi
     
-    # Set up authorized_keys
-    mkdir -p ~/.ssh
+    # Add the local key to authorized_keys too
     cat "$SSH_KEYFILE.pub" >> ~/.ssh/authorized_keys
-    chmod 600 ~/.ssh/authorized_keys
     
     # Disable password authentication
     log "Hardening SSH configuration..."
@@ -57,8 +72,8 @@ harden_ssh() {
     sudo systemctl restart ssh
     
     log "SSH hardened, now using key-based authentication only"
-    log "Public key is:"
-    cat "$SSH_KEYFILE.pub"
+    log "Public keys in authorized_keys:"
+    cat ~/.ssh/authorized_keys
 }
 
 # Install Kubernetes (k3s)
@@ -347,9 +362,11 @@ main() {
     echo "======================================================================"
     echo "Android pKVM setup completed!"
     echo ""
-    echo "The SSH key for accessing the pKVM instance is at: $SSH_KEYFILE"
-    echo "Use this public key from your controlling machine:"
-    cat "$SSH_KEYFILE.pub"
+    echo "You have configured the following SSH keys for access:"
+    echo "1. Your provided key: $SSH_PUB_KEY"
+    echo "2. The locally generated key at: $SSH_KEYFILE"
+    echo ""
+    echo "Make sure to save your private key to access this VM!"
     echo ""
     echo "Services:"
     HOST_IP=$(hostname -I | awk '{print $1}')
