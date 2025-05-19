@@ -10,11 +10,23 @@ SSH_PUB_KEY="$1" # Path to SSH public key file
 DASHBOARD_PORT="${2:-30443}" # Default port for K3s Dashboard
 GLANCES_PORT="${3:-8080}" # Default port for Glances
 NGINX_PORT="${4:-8081}" # Default port for Nginx
-SSH_KEYFILE="$HOME/.ssh/droid_pkvm" # Path to store the new SSH key
+DROID_USER="droid" # Username for the droid user
+DROID_HOME="/home/$DROID_USER" # Home directory
+SSH_KEYFILE="$DROID_HOME/.ssh/droid_pkvm" # Path to store the new SSH key
 
 # Function to log messages
 log() {
     echo "$(date +"%Y-%m-%d %H:%M:%S") - $1" | tee -a "$LOGFILE"
+}
+
+# Check if running as root
+check_root() {
+    if [ "$(id -u)" -ne 0 ]; then
+        log "ERROR: This script must be run as root. Please use sudo or 'sudo su -'"
+        echo "Please run this script as root: sudo ./setup.sh <ssh_pub_key> [dashboard_port] [glances_port] [nginx_port]"
+        exit 1
+    fi
+    log "Running as root"
 }
 
 # Validate required parameters and environment
@@ -44,25 +56,18 @@ validate_params() {
 harden_ssh() {
     log "Setting up SSH with provided public key..."
     
-    # Set up authorized_keys with the provided key
-    mkdir -p ~/.ssh
-    
-    # Ensure proper permissions before adding keys
-    touch ~/.ssh/authorized_keys
-    chmod 700 ~/.ssh
-    chmod 600 ~/.ssh/authorized_keys
+    # Set up SSH directory and authorized_keys with the provided key
+    mkdir -p "$DROID_HOME/.ssh"
+    touch "$DROID_HOME/.ssh/authorized_keys"
     
     # Add the provided key to authorized_keys
     log "Adding your provided public key to authorized_keys..."
-    cat "$SSH_PUB_KEY" > /tmp/temp_pubkey
-    cat /tmp/temp_pubkey >> ~/.ssh/authorized_keys
-    rm /tmp/temp_pubkey
+    cat "$SSH_PUB_KEY" >> "$DROID_HOME/.ssh/authorized_keys"
     
     # Make sure we have a local key for the VM too
     if [ ! -f "$SSH_KEYFILE" ]; then
         log "Generating local SSH keypair at $SSH_KEYFILE..."
         ssh-keygen -t ed25519 -f "$SSH_KEYFILE" -N "" -C "droid_pkvm_key"
-        chmod 600 "$SSH_KEYFILE"
         log "Local SSH keypair generated"
     else
         log "Local SSH keypair already exists, using existing key"
@@ -70,42 +75,44 @@ harden_ssh() {
     
     # Add the local key to authorized_keys too
     log "Adding local public key to authorized_keys..."
-    cat "$SSH_KEYFILE.pub" >> ~/.ssh/authorized_keys
+    cat "$SSH_KEYFILE.pub" >> "$DROID_HOME/.ssh/authorized_keys"
     
-    # Ensure proper ownership and permissions
-    sudo chown -R $(whoami):$(whoami) ~/.ssh
-    chmod 700 ~/.ssh
-    chmod 600 ~/.ssh/authorized_keys
+    # Set proper ownership and permissions
+    chown -R $DROID_USER:$DROID_USER "$DROID_HOME/.ssh"
+    chmod 700 "$DROID_HOME/.ssh"
+    chmod 600 "$DROID_HOME/.ssh/authorized_keys"
+    chmod 600 "$SSH_KEYFILE"
     
     # Disable password authentication
     log "Hardening SSH configuration..."
-    sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.hardened
-    sudo sed -i 's/^PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-    sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-    sudo sed -i 's/^#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config
-    sudo systemctl restart ssh
+    cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.hardened
+    sed -i 's/^PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+    sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+    sed -i 's/^#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+    systemctl restart ssh
     
     log "SSH hardened, now using key-based authentication only"
     log "Public keys in authorized_keys:"
-    cat ~/.ssh/authorized_keys
+    cat "$DROID_HOME/.ssh/authorized_keys"
 }
 
 # Install Kubernetes (k3s)
 install_k3s() {
     log "Installing k3s..."
     
-    sudo curl -sfL https://get.k3s.io | sudo sh -
-    sudo mkdir -p $HOME/.kube
-    sudo cp /etc/rancher/k3s/k3s.yaml $HOME/.kube/config
-    sudo sed -i "s/127.0.0.1/$(hostname -I | awk '{print $1}')/g" $HOME/.kube/config
-    sudo chown $(id -u):$(id -g) $HOME/.kube/config
-    chmod 600 $HOME/.kube/config
-    export KUBECONFIG=$HOME/.kube/config
-    echo "export KUBECONFIG=$HOME/.kube/config" >> $HOME/.bashrc
+    curl -sfL https://get.k3s.io | sh -
+    mkdir -p $DROID_HOME/.kube
+    cp /etc/rancher/k3s/k3s.yaml $DROID_HOME/.kube/config
+    sed -i "s/127.0.0.1/$(hostname -I | awk '{print $1}')/g" $DROID_HOME/.kube/config
+    chown -R $DROID_USER:$DROID_USER $DROID_HOME/.kube
+    chmod 600 $DROID_HOME/.kube/config
+    
+    # Add KUBECONFIG to user's .bashrc
+    echo "export KUBECONFIG=$DROID_HOME/.kube/config" >> $DROID_HOME/.bashrc
 
     # Wait for node to be ready
     log "Waiting for node to be ready..."
-    sudo timeout 120s bash -c 'until kubectl get nodes | grep " Ready "; do sleep 5; done'
+    timeout 120s bash -c 'until kubectl get nodes | grep " Ready "; do sleep 5; done'
     
     log "k3s installed"
 }
@@ -124,8 +131,9 @@ install_helm() {
     fi
 
     # Add Kubernetes Dashboard repo
-    helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
-    helm repo update
+    # Run as droid user to ensure proper permissions
+    su - $DROID_USER -c "helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/"
+    su - $DROID_USER -c "helm repo update"
     
     log "Helm installed"
 }
@@ -134,10 +142,10 @@ install_helm() {
 configure_firewall() {
     log "Configuring firewall for services..."
     
-    sudo ufw allow $DASHBOARD_PORT/tcp comment "K3s Dashboard"
-    sudo ufw allow $GLANCES_PORT/tcp comment "Glances"
-    sudo ufw allow $NGINX_PORT/tcp comment "Nginx"
-    sudo ufw allow 6443/tcp comment "Kubernetes API"
+    ufw allow $DASHBOARD_PORT/tcp comment "K3s Dashboard"
+    ufw allow $GLANCES_PORT/tcp comment "Glances"
+    ufw allow $NGINX_PORT/tcp comment "Nginx"
+    ufw allow 6443/tcp comment "Kubernetes API"
     
     log "Firewall configured for services"
 }
@@ -186,12 +194,12 @@ YAML
     kubectl -n kubernetes-dashboard wait --for=condition=available deployment/kubernetes-dashboard --timeout=60s
 
     # Get token for dashboard access
-    kubectl -n kubernetes-dashboard create token admin-user > ~/dashboard-token.txt
-    chmod 600 ~/dashboard-token.txt
+    kubectl -n kubernetes-dashboard create token admin-user > $DROID_HOME/dashboard-token.txt
+    chmod 600 $DROID_HOME/dashboard-token.txt
 
     HOST_IP=$(hostname -I | awk '{print $1}')
     log "Kubernetes Dashboard available at: http://$HOST_IP:$DASHBOARD_PORT"
-    log "Access token saved to: ~/dashboard-token.txt"
+    log "Access token saved to: $DROID_HOME/dashboard-token.txt"
     
     log "Kubernetes Dashboard deployed"
 }
@@ -361,16 +369,51 @@ run_tests() {
 
 # Main function
 main() {
+    check_root
     validate_params
     harden_ssh
     install_k3s
     install_helm
     configure_firewall
-    collect_hardware_info
-    deploy_dashboard
-    deploy_glances
-    deploy_nginx
-    run_tests
+    
+    # Run the remaining functions as the droid user
+    log "Switching to droid user for Kubernetes operations..."
+    
+    # Set KUBECONFIG environment variable for the droid user
+    export KUBECONFIG=$DROID_HOME/.kube/config
+    
+    # Run the remaining operations with the droid user permissions
+    cd $(dirname "$0")
+    cp -r $(pwd) $DROID_HOME/droid-pkvm-setup
+    chown -R $DROID_USER:$DROID_USER $DROID_HOME/droid-pkvm-setup
+    
+    # Create a wrapper script to run the remaining operations
+    cat > $DROID_HOME/run_setup.sh << EOF
+#!/bin/bash
+cd $DROID_HOME/droid-pkvm-setup
+export KUBECONFIG=$DROID_HOME/.kube/config
+chmod +x detect_android.sh
+
+# Run the remaining functions
+$(declare -f collect_hardware_info)
+$(declare -f deploy_dashboard)
+$(declare -f deploy_glances)
+$(declare -f deploy_nginx)
+$(declare -f run_tests)
+
+collect_hardware_info
+deploy_dashboard
+deploy_glances
+deploy_nginx
+run_tests
+EOF
+    
+    chmod +x $DROID_HOME/run_setup.sh
+    chown $DROID_USER:$DROID_USER $DROID_HOME/run_setup.sh
+    
+    # Run the script as droid user
+    log "Running Kubernetes operations as droid user..."
+    su - $DROID_USER -c "$DROID_HOME/run_setup.sh"
     
     log "Setup completed successfully!"
     echo "======================================================================"
@@ -388,7 +431,7 @@ main() {
     echo "  Glances: http://$HOST_IP:$GLANCES_PORT"
     echo "  Nginx (Hardware Info): http://$HOST_IP:$NGINX_PORT"
     echo ""
-    echo "Dashboard token is stored at: ~/dashboard-token.txt"
+    echo "Dashboard token is stored at: $DROID_HOME/dashboard-token.txt"
     echo "======================================================================"
 }
 
