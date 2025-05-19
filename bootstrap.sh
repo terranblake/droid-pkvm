@@ -212,6 +212,14 @@ clone_repo() {
     # Clone the repository
     git clone https://github.com/terranblake/droid-pkvm.git /home/droid/droid-pkvm
     
+    # Mark repository as safe directory for both root and droid user
+    log "Setting Git global config to handle repository ownership..."
+    git config --global --add safe.directory /home/droid/droid-pkvm
+    
+    # Also set permissions to ensure both users can access the repo
+    log "Setting permissions on repository..."
+    chmod -R 777 /home/droid/droid-pkvm
+    
     log "Repository cloned to /home/droid/droid-pkvm"
 }
 
