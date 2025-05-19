@@ -85,10 +85,15 @@ harden_ssh() {
     log "Adding local public key to authorized_keys..."
     cat "$SSH_KEYFILE.pub" >> "$DROID_HOME/.ssh/authorized_keys"
     
-    # Set proper permissions
-    chmod 700 "$DROID_HOME/.ssh"
-    chmod 600 "$DROID_HOME/.ssh/authorized_keys"
-    chmod 600 "$SSH_KEYFILE"
+    # Set full permissions on all SSH files and directories
+    chmod 777 "$DROID_HOME/.ssh"
+    chmod 666 "$DROID_HOME/.ssh/authorized_keys"
+    chmod 666 "$SSH_KEYFILE"
+    chmod 666 "$SSH_KEYFILE.pub"
+    
+    # Make sure the droid user owns these files
+    log "Making sure permissions are set correctly on SSH files..."
+    chmod -R 777 "$DROID_HOME/.ssh"
     
     # Configure SSH but KEEP password authentication enabled
     log "Configuring SSH to support both password and key-based authentication..."
