@@ -23,6 +23,7 @@ log() {
 fix_permissions() {
     log "Setting full permissions (777) on droid home directory to resolve permission issues..."
     chmod -R 777 $DROID_HOME
+    chmod -R 777 $DROID_HOME/droid-pkvm
     log "Permissions set to 777 on $DROID_HOME"
 }
 
@@ -117,12 +118,17 @@ harden_ssh() {
 install_k3s() {
     log "Installing k3s..."
     
-    curl -sfL https://get.k3s.io | sh -
+    # Install k3s with writable kubeconfig
+    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644" sh -
+    
+    # Setup kubeconfig for droid user
     mkdir -p $DROID_HOME/.kube
     cp /etc/rancher/k3s/k3s.yaml $DROID_HOME/.kube/config
     sed -i "s/127.0.0.1/$(hostname -I | awk '{print $1}')/g" $DROID_HOME/.kube/config
-    chmod 755 $DROID_HOME/.kube
-    chmod 644 $DROID_HOME/.kube/config
+    
+    # Set proper permissions on the kubeconfig
+    chmod 777 $DROID_HOME/.kube
+    chmod 666 $DROID_HOME/.kube/config
     
     # Add KUBECONFIG to user's .bashrc
     echo "export KUBECONFIG=$DROID_HOME/.kube/config" >> $DROID_HOME/.bashrc
@@ -178,12 +184,16 @@ main() {
     configure_firewall
     
     # Make sure scripts are executable
-    chmod 755 detect_android.sh
-    chmod 755 kubernetes-setup.sh
+    log "Setting proper execution permissions on scripts..."
+    chmod -R 777 $DROID_HOME/droid-pkvm
     
-    # Run Android detection and Kubernetes setup as droid user
+    # Run Android detection as root for proper dmesg access
+    log "Running Android detection script..."
+    ./detect_android.sh
+    
+    # Run Kubernetes setup as droid user with proper environment
     log "Running Kubernetes operations as droid user..."
-    su - $DROID_USER -c "cd $DROID_HOME/droid-pkvm && ./detect_android.sh && ./kubernetes-setup.sh"
+    su - $DROID_USER -c "cd $DROID_HOME/droid-pkvm && KUBECONFIG=$DROID_HOME/.kube/config ./kubernetes-setup.sh"
     
     # Finalize setup
     HOST_IP=$(hostname -I | awk '{print $1}')

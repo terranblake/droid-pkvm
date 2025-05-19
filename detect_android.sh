@@ -57,7 +57,13 @@ echo "" >> $OUTPUT_FILE
 
 # Check dmesg for pKVM references
 echo "== pKVM Evidence in dmesg ==" >> $OUTPUT_FILE
-dmesg | grep -i "pkvm\|protected\|hypervisor" >> $OUTPUT_FILE 2>&1
+if [ "$(id -u)" -eq 0 ]; then
+    dmesg | grep -i "pkvm\|protected\|hypervisor" >> $OUTPUT_FILE 2>&1
+else
+    echo "Note: dmesg requires root privileges. Run with sudo for complete information." >> $OUTPUT_FILE
+    # Try with sudo but don't fail if it doesn't work
+    sudo dmesg 2>/dev/null | grep -i "pkvm\|protected\|hypervisor" >> $OUTPUT_FILE 2>&1 || echo "Could not access dmesg output (permission denied)" >> $OUTPUT_FILE
+fi
 echo "" >> $OUTPUT_FILE
 
 # Check for DMI information
