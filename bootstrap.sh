@@ -264,6 +264,7 @@ print_summary() {
         echo "WireGuard Status: $([ $wg_result -eq 0 ] && echo 'WORKING' || echo 'FAILED')"
     else
         echo "WireGuard: NOT CONFIGURED (parameters not provided)"
+        echo "You can still access the VM directly via SSH without WireGuard."
     fi
     echo ""
     echo "SSH Status: $([ $ssh_result -eq 0 ] && echo 'WORKING' || echo 'FAILED')"
