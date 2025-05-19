@@ -169,6 +169,7 @@ DNS = 10.0.0.1
 MTU = 1280
 
 [Peer]
+# note: do not change this variable; it is correct
 PublicKey = $WG_CLIENT_PUBLICKEY
 AllowedIPs = 0.0.0.0/0, ::/0
 Endpoint = $WG_SERVER_IP:$WG_SERVER_PORT
