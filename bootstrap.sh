@@ -216,6 +216,14 @@ clone_repo() {
     log "Marking repository as safe directory..."
     git config --global --add safe.directory /home/droid/droid-pkvm
     
+    # Fix permissions on git repository to ensure droid user can use it
+    log "Setting proper permissions on Git repository..."
+    chmod -R 777 /home/droid/droid-pkvm/.git
+    
+    # Add config for the droid user as well (non-root user)
+    log "Adding Git safe directory for droid user..."
+    su - droid -c "git config --global --add safe.directory /home/droid/droid-pkvm"
+    
     log "Repository cloned to /home/droid/droid-pkvm"
 }
 
