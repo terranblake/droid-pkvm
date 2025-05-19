@@ -1,6 +1,6 @@
 # Android pKVM Setup
 
-This repository contains scripts and configurations to set up a Debian virtual machine running on an Android device with pKVM (protected Kernel Virtual Machine) support. The setup includes WireGuard VPN, SSH access, Kubernetes (k3s), and monitoring tools.
+This repository contains scripts and configurations to set up a Debian virtual machine running on an Android device with pKVM (protected Kernel Virtual Machine) support. The setup includes optional WireGuard VPN, SSH access, Kubernetes (k3s), and monitoring tools.
 
 ## Overview
 
@@ -12,8 +12,8 @@ The setup is split into two main phases:
 ## Requirements
 
 - An Android device with pKVM support
-- WireGuard server already set up and configured
-- WireGuard client keypair for the VM
+- WireGuard server already set up and configured (optional)
+- WireGuard client keypair for the VM (optional)
 
 ## Quick Start
 
@@ -24,8 +24,11 @@ The setup is split into two main phases:
 curl -O https://raw.githubusercontent.com/terranblake/droid-pkvm/main/bootstrap.sh
 chmod +x bootstrap.sh
 
-# Run the bootstrap script
+# Run the bootstrap script with WireGuard
 ./bootstrap.sh <wg_server_ip> <wg_server_pubkey> <wg_client_pubkey> <wg_client_privkey>
+
+# Or run without WireGuard
+./bootstrap.sh
 ```
 
 ### 2. Post-Bootstrap Phase (on the pKVM instance)
@@ -52,16 +55,20 @@ ssh -i ~/.ssh/your_key -p 2222 droid@<pkvm_ip_address>
 ### Bootstrap Phase
 
 The bootstrap script sets up the basic infrastructure on the pKVM instance:
-- WireGuard VPN client
+- WireGuard VPN client (optional)
 - SSH server with user 'droid'
 - Basic logging and firewall
 - Clones this repository
 
 ```bash
+# With WireGuard VPN
 ./bootstrap.sh <wg_server_ip> <wg_server_pubkey> <wg_client_pubkey> <wg_client_privkey>
+
+# Without WireGuard VPN
+./bootstrap.sh
 ```
 
-Parameters:
+Parameters (all optional):
 - `wg_server_ip`: WireGuard server IP address
 - `wg_server_pubkey`: WireGuard server's public key
 - `wg_client_pubkey`: WireGuard client's public key
@@ -73,7 +80,7 @@ The setup script:
 - Generates an SSH key and hardens SSH access
 - Installs Kubernetes (k3s)
 - Installs Helm
-- Collects hardware information
+- Collects hardware information and runs Android detection
 - Deploys Kubernetes Dashboard
 - Deploys Glances system monitor
 - Deploys Nginx landing page with hardware information
@@ -122,6 +129,9 @@ The most definitive indicators of Android are:
 - `charts/`: Helm charts for deployed services
   - `glances/`: Glances monitoring tool
   - `nginx/`: Nginx with hardware information dashboard
+    - `static/`: Static files for the Nginx dashboard
+    - `templates/`: Helm templates
+    - `templates/hardware/`: Directory for hardware information
 - `TESTING.md`: Detailed testing information
 
 ## Troubleshooting
@@ -129,7 +139,7 @@ The most definitive indicators of Android are:
 If you encounter issues:
 
 1. **Bootstrap Issues**
-   - Verify WireGuard connectivity
+   - Verify WireGuard connectivity (if used)
    - Ensure all required parameters are correct
    - Check network access to GitHub
 
