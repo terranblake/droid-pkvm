@@ -9,7 +9,7 @@ LOGFILE="$(pwd)/setup.log"
 SSH_PUB_KEY="$1" # Path to SSH public key file
 DASHBOARD_PORT="${2:-30443}" # Default port for K3s Dashboard
 GLANCES_PORT="${3:-8080}" # Default port for Glances
-NGINX_PORT="${4:-8081}" # Default port for Nginx
+NGINX_PORT="${4:-30081}" # Default port for Nginx (must be in nodePort range 30000-32767)
 DROID_USER="droid" # Username for the droid user
 DROID_HOME="/home/$DROID_USER" # Home directory
 SSH_KEYFILE="$DROID_HOME/.ssh/droid_pkvm" # Path to store the new SSH key
@@ -31,24 +31,36 @@ fix_permissions() {
 check_root() {
     if [ "$(id -u)" -ne 0 ]; then
         log "ERROR: This script must be run as root. Please use sudo"
-        echo "Please run this script as root: sudo ./setup.sh <ssh_pub_key> [dashboard_port] [glances_port] [nginx_port]"
+        echo "Please run this script as root: sudo ./setup.sh [ssh_pub_key] [dashboard_port] [glances_port] [nginx_port]"
         exit 1
     fi
     log "Running as root"
 }
 
-# Validate required parameters and environment
+# Validate parameters and environment
 validate_params() {
-    # Check for SSH public key
-    if [ -z "$SSH_PUB_KEY" ] || [ ! -f "$SSH_PUB_KEY" ]; then
-        echo "ERROR: SSH public key file not provided or does not exist."
-        echo "Usage: $0 <path_to_ssh_pubkey> [dashboard_port] [glances_port] [nginx_port]"
-        echo "Example: $0 ~/.ssh/id_ed25519.pub 30443 8080 8081"
-        exit 1
-    fi
-
     log "Starting setup with the following parameters:"
-    log "SSH public key: $SSH_PUB_KEY"
+    
+    # Make SSH key parameter optional
+    if [ -n "$SSH_PUB_KEY" ]; then
+        if [ -f "$SSH_PUB_KEY" ]; then
+            # Validate the key if provided
+            if ssh-keygen -l -f "$SSH_PUB_KEY" &>/dev/null; then
+                log "SSH public key: $SSH_PUB_KEY (VALID)"
+                SSH_KEY_VALID=true
+            else
+                log "WARNING: Provided SSH key '$SSH_PUB_KEY' exists but is not valid. Will skip using it."
+                SSH_KEY_VALID=false
+            fi
+        else
+            log "WARNING: Provided SSH key path '$SSH_PUB_KEY' does not exist. Will skip using it."
+            SSH_KEY_VALID=false
+        fi
+    else
+        log "No SSH public key provided, will keep existing configuration if available"
+        SSH_KEY_VALID=false
+    fi
+    
     log "Dashboard port: $DASHBOARD_PORT"
     log "Glances port: $GLANCES_PORT"
     log "Nginx port: $NGINX_PORT"
@@ -62,16 +74,26 @@ validate_params() {
 
 # Generate SSH keypair and harden SSH 
 harden_ssh() {
-    log "Setting up SSH with provided public key..."
+    log "Setting up SSH configuration..."
     
-    # Completely remove and recreate the SSH directory
-    log "Recreating SSH directory structure with proper permissions..."
-    rm -rf "$DROID_HOME/.ssh"
-    mkdir -p "$DROID_HOME/.ssh"
+    # Create SSH directory if it doesn't exist
+    if [ ! -d "$DROID_HOME/.ssh" ]; then
+        log "Creating SSH directory structure..."
+        mkdir -p "$DROID_HOME/.ssh"
+    fi
     
-    # Add the provided key to authorized_keys
-    log "Adding your provided public key to authorized_keys..."
-    cat "$SSH_PUB_KEY" > "$DROID_HOME/.ssh/authorized_keys"
+    # Create authorized_keys if it doesn't exist
+    if [ ! -f "$DROID_HOME/.ssh/authorized_keys" ]; then
+        log "Creating new authorized_keys file..."
+        touch "$DROID_HOME/.ssh/authorized_keys"
+    fi
+    
+    # Add the provided key to authorized_keys only if it's valid
+    if [ "$SSH_KEY_VALID" = true ]; then
+        log "Adding your provided public key to authorized_keys..."
+        cat "$SSH_PUB_KEY" > "$DROID_HOME/.ssh/authorized_keys.new"
+        mv "$DROID_HOME/.ssh/authorized_keys.new" "$DROID_HOME/.ssh/authorized_keys"
+    fi
     
     # Make sure we have a local key for the VM too
     if [ ! -f "$DROID_HOME/.ssh/droid_pkvm" ]; then
