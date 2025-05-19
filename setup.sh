@@ -126,12 +126,18 @@ harden_ssh() {
 
 # Install Kubernetes (k3s)
 install_k3s() {
-    log "Installing k3s..."
+    log "Checking if k3s is already installed..."
+    if systemctl is-active --quiet k3s; then
+        log "k3s is already installed and running"
+    else
+        log "Installing k3s..."
+        
+        # Install k3s with writable kubeconfig
+        curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644" sh -
+    fi
     
-    # Install k3s with writable kubeconfig
-    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644" sh -
-    
-    # Setup kubeconfig for droid user
+    # Setup kubeconfig for droid user (idempotent operation)
+    log "Setting up kubeconfig for droid user..."
     mkdir -p $DROID_HOME/.kube
     cp /etc/rancher/k3s/k3s.yaml $DROID_HOME/.kube/config
     sed -i "s/127.0.0.1/$(hostname -I | awk '{print $1}')/g" $DROID_HOME/.kube/config
@@ -140,41 +146,43 @@ install_k3s() {
     chmod 777 $DROID_HOME/.kube
     chmod 666 $DROID_HOME/.kube/config
     
-    # Add KUBECONFIG to user's .bashrc
-    echo "export KUBECONFIG=$DROID_HOME/.kube/config" >> $DROID_HOME/.bashrc
+    # Add KUBECONFIG to user's .bashrc if not already there
+    if ! grep -q "KUBECONFIG=$DROID_HOME/.kube/config" $DROID_HOME/.bashrc; then
+        log "Adding KUBECONFIG to .bashrc..."
+        echo "export KUBECONFIG=$DROID_HOME/.kube/config" >> $DROID_HOME/.bashrc
+    fi
 
     # Wait for node to be ready
     log "Waiting for node to be ready..."
     timeout 120s bash -c 'until kubectl get nodes | grep " Ready "; do sleep 5; done'
     
-    log "k3s installed"
+    log "k3s installed and ready"
 }
 
 # Install Helm
 install_helm() {
-    log "Installing Helm..."
-    
-    # Check if Helm is already available (it should be part of k3s)
+    log "Checking if Helm is already installed..."
     if command -v helm &> /dev/null; then
-        log "Helm is already installed with k3s"
+        log "Helm is already installed"
         helm version
     else
-        log "Helm not found, installing manually..."
+        log "Installing Helm..."
         curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
     fi
 
-    # Add Kubernetes Dashboard repo
-    # Run as droid user to ensure proper permissions
+    # Add Kubernetes Dashboard repo - idempotent operation
+    log "Adding Kubernetes Dashboard repository..."
     su - $DROID_USER -c "helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/"
     su - $DROID_USER -c "helm repo update"
     
-    log "Helm installed"
+    log "Helm installed and configured"
 }
 
 # Configure firewall for services
 configure_firewall() {
     log "Configuring firewall for services..."
     
+    # These add operations are idempotent - they will be skipped if rule already exists
     ufw allow $DASHBOARD_PORT/tcp comment "K3s Dashboard"
     ufw allow $GLANCES_PORT/tcp comment "Glances"
     ufw allow $NGINX_PORT/tcp comment "Nginx"

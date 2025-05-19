@@ -34,24 +34,29 @@ if ! kubectl get nodes &>/dev/null; then
     exit 1
 fi
 
-# Create namespaces
+# Create namespaces (idempotent operation)
 log "Creating namespaces..."
-kubectl create namespace kubernetes-dashboard 2>/dev/null || log "Namespace kubernetes-dashboard already exists or cannot be created"
-kubectl create namespace monitoring 2>/dev/null || log "Namespace monitoring already exists or cannot be created"
-kubectl create namespace web 2>/dev/null || log "Namespace web already exists or cannot be created"
+kubectl create namespace kubernetes-dashboard 2>/dev/null || log "Namespace kubernetes-dashboard already exists"
+kubectl create namespace monitoring 2>/dev/null || log "Namespace monitoring already exists"
+kubectl create namespace web 2>/dev/null || log "Namespace web already exists"
 
-# Deploy Dashboard
-log "Deploying Kubernetes Dashboard..."
-helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
-    --namespace kubernetes-dashboard \
-    --set service.type=NodePort \
-    --set service.nodePort=30443 \
-    --set protocolHttp=true \
-    --set service.externalPort=80 \
-    --set metricsScraper.enabled=true || log "ERROR: Failed to deploy dashboard"
+# Check if Dashboard is already deployed
+log "Checking if Kubernetes Dashboard is already deployed..."
+if kubectl get deployment -n kubernetes-dashboard kubernetes-dashboard-web &>/dev/null; then
+    log "Kubernetes Dashboard is already deployed, skipping installation"
+else
+    # Deploy Dashboard
+    log "Deploying Kubernetes Dashboard..."
+    helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+        --namespace kubernetes-dashboard \
+        --set service.type=NodePort \
+        --set service.nodePort=30443 \
+        --set protocolHttp=true \
+        --set service.externalPort=80 \
+        --set metricsScraper.enabled=true || log "ERROR: Failed to deploy dashboard"
 
-# Create a direct NodePort service for the dashboard to ensure it's accessible
-kubectl apply -f - <<YAML
+    # Create a direct NodePort service for the dashboard to ensure it's accessible
+    kubectl apply -f - <<YAML
 apiVersion: v1
 kind: Service
 metadata:
@@ -68,8 +73,9 @@ spec:
     app.kubernetes.io/instance: kubernetes-dashboard
     app.kubernetes.io/name: kong
 YAML
+fi
 
-# Create service account and dashboard admin
+# Create service account and dashboard admin (idempotent operation)
 log "Creating dashboard admin user..."
 kubectl apply -f - <<YAML
 apiVersion: v1
@@ -94,18 +100,34 @@ subjects:
   namespace: kubernetes-dashboard
 YAML
 
-# Get token for dashboard access
+# Get token for dashboard access (regenerate each time for security)
 log "Generating dashboard token..."
 kubectl -n kubernetes-dashboard create token admin-user > $HOME/dashboard-token.txt || log "ERROR: Failed to create dashboard token"
 chmod 666 $HOME/dashboard-token.txt
 
-# Deploy Glances
-log "Deploying Glances..."
-helm upgrade --install glances ./charts/glances -n monitoring || log "ERROR: Failed to deploy Glances"
+# Check if Glances is already deployed
+log "Checking if Glances is already deployed..."
+if kubectl get deployment -n monitoring glances &>/dev/null; then
+    log "Glances is already deployed, updating if needed..."
+    # Update Glances to ensure it has the latest configuration
+    helm upgrade --install glances ./charts/glances -n monitoring || log "ERROR: Failed to upgrade Glances"
+else
+    # Deploy Glances
+    log "Deploying Glances..."
+    helm upgrade --install glances ./charts/glances -n monitoring || log "ERROR: Failed to deploy Glances"
+fi
 
-# Deploy Nginx
-log "Deploying Nginx..."
-helm upgrade --install nginx ./charts/nginx -n web || log "ERROR: Failed to deploy Nginx"
+# Check if Nginx is already deployed
+log "Checking if Nginx is already deployed..."
+if kubectl get deployment -n web nginx &>/dev/null; then
+    log "Nginx is already deployed, updating if needed..."
+    # Update Nginx to ensure it has the latest configuration
+    helm upgrade --install nginx ./charts/nginx -n web || log "ERROR: Failed to upgrade Nginx"
+else
+    # Deploy Nginx
+    log "Deploying Nginx..."
+    helm upgrade --install nginx ./charts/nginx -n web || log "ERROR: Failed to deploy Nginx"
+fi
 
 # Run tests
 log "Running final tests..."
