@@ -212,10 +212,6 @@ clone_repo() {
     # Clone the repository
     git clone https://github.com/terranblake/droid-pkvm.git /home/droid/droid-pkvm
     
-    # This is what worked during our debugging session
-    log "Configuring repository permissions for all users..."
-    sudo git config --global --add safe.directory /home/droid/droid-pkvm
-    
     log "Repository cloned to /home/droid/droid-pkvm"
 }
 
