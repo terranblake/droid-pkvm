@@ -82,15 +82,26 @@ harden_ssh() {
     chmod 600 "$DROID_HOME/.ssh/authorized_keys"
     chmod 600 "$SSH_KEYFILE"
     
-    # Disable password authentication
-    log "Hardening SSH configuration..."
+    # Configure SSH but KEEP password authentication enabled
+    log "Configuring SSH to support both password and key-based authentication..."
     cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.hardened
-    sed -i 's/^PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-    sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+    
+    # Ensure PubkeyAuthentication is enabled, but don't disable PasswordAuthentication
     sed -i 's/^#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+    
+    # Make sure PasswordAuthentication is explicitly enabled
+    if grep -q "^PasswordAuthentication no" /etc/ssh/sshd_config; then
+        sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+    fi
+    
+    if grep -q "^#PasswordAuthentication" /etc/ssh/sshd_config; then
+        sed -i 's/^#PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+    fi
+    
+    # Restart SSH service to apply changes
     systemctl restart ssh
     
-    log "SSH hardened, now using key-based authentication only"
+    log "SSH configured with key-based authentication and password authentication both enabled"
     log "Public keys in authorized_keys:"
     cat "$DROID_HOME/.ssh/authorized_keys"
 }
