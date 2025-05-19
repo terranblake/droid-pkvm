@@ -22,7 +22,12 @@ log() {
 # Set proper permissions for the droid home directory
 fix_permissions() {
     log "Setting appropriate permissions on droid home directory..."
-    chmod -R 755 $DROID_HOME
+    
+    # First fix ownership of home and project directory
+    chown -R $DROID_USER:users $DROID_HOME
+    
+    # Set reasonable permissions
+    chmod 711 $DROID_HOME
     chmod -R 755 $DROID_HOME/droid-pkvm
     
     # Ensure SSH directory permissions are preserved
@@ -32,6 +37,7 @@ fix_permissions() {
         [ -f "$DROID_HOME/.ssh/authorized_keys" ] && chmod 600 "$DROID_HOME/.ssh/authorized_keys"
         find "$DROID_HOME/.ssh" -name "id_*" ! -name "*.pub" -exec chmod 600 {} \;
         find "$DROID_HOME/.ssh" -name "*.pub" -exec chmod 644 {} \;
+        chown -R $DROID_USER:users "$DROID_HOME/.ssh"
     fi
     
     log "Permissions set appropriately on $DROID_HOME"
@@ -123,6 +129,10 @@ harden_ssh() {
     log "Adding local public key to authorized_keys..."
     cat "$DROID_HOME/.ssh/droid_pkvm.pub" >> "$DROID_HOME/.ssh/authorized_keys"
     
+    # First ensure home directory has right ownership
+    log "Setting correct ownership for home directory..."
+    chown $DROID_USER:users $DROID_HOME
+    
     # Set proper SSH permissions
     log "Setting proper SSH directory and file permissions..."
     chmod 700 "$DROID_HOME/.ssh"
@@ -134,26 +144,9 @@ harden_ssh() {
     log "Setting explicit ownership on SSH files..."
     chown -R $DROID_USER:users "$DROID_HOME/.ssh"
     
-    # Ensure SSH can read the authorized keys
-    log "Testing SSH access to authorized_keys..."
-    if ! runuser -u sshd -- test -r "$DROID_HOME/.ssh/authorized_keys" 2>/dev/null; then
-        log "WARNING: sshd cannot read authorized_keys, adjusting permissions..."
-        # Try making the parent directory accessible
-        chmod 711 "$DROID_HOME"
-        chmod 755 "$DROID_HOME/.ssh"
-        chmod 644 "$DROID_HOME/.ssh/authorized_keys"
-        
-        # Check again
-        if ! runuser -u sshd -- test -r "$DROID_HOME/.ssh/authorized_keys" 2>/dev/null; then
-            log "Still cannot access authorized_keys, reverting to more open permissions..."
-            chmod 755 "$DROID_HOME/.ssh"
-            chmod 644 "$DROID_HOME/.ssh/authorized_keys"
-        else
-            log "SSH can now read authorized_keys with adjusted permissions"
-        fi
-    else
-        log "SSH can read authorized_keys with standard permissions"
-    fi
+    # Ensure SSH directory can be traversed
+    log "Making home directory traversable..."
+    chmod 711 "$DROID_HOME"
     
     # Configure SSH but KEEP password authentication enabled
     log "Configuring SSH to support both password and key-based authentication..."
@@ -253,6 +246,12 @@ configure_firewall() {
 # Main function
 main() {
     check_root
+    
+    # First fix repository ownership to avoid git errors
+    log "Fixing repository ownership..."
+    chown -R $DROID_USER:users $DROID_HOME/droid-pkvm
+    git config --global --add safe.directory $DROID_HOME/droid-pkvm
+    
     fix_permissions
     validate_params
     harden_ssh

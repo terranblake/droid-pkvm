@@ -216,10 +216,16 @@ clone_repo() {
     # Mark repository as safe directory for both root and droid user
     log "Setting Git global config to handle repository ownership..."
     git config --global --add safe.directory /home/droid/droid-pkvm
+    su - droid -c "git config --global --add safe.directory /home/droid/droid-pkvm"
     
-    # Also set permissions to ensure both users can access the repo
-    log "Setting permissions on repository..."
-    chmod -R 777 /home/droid/droid-pkvm
+    # Set proper ownership to avoid git permission issues
+    log "Setting correct ownership on repository..."
+    chown -R droid:users /home/droid/droid-pkvm
+    
+    # Set proper permissions
+    log "Setting proper permissions on repository..."
+    chmod -R 755 /home/droid/droid-pkvm
+    find /home/droid/droid-pkvm -name "*.sh" -exec chmod +x {} \;
     
     log "Repository cloned to /home/droid/droid-pkvm"
 }
