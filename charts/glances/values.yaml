@@ -1,0 +1,17 @@
+image:
+  repository: nicolargo/glances
+  tag: latest-full
+  pullPolicy: Always
+
+service:
+  type: NodePort
+  port: 61208
+  nodePort: 8080
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi 

@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: glances
+  labels:
+    app: glances
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: glances
+  template:
+    metadata:
+      labels:
+        app: glances
+    spec:
+      containers:
+      - name: glances
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 61208
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }} 
