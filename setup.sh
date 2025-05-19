@@ -19,6 +19,13 @@ log() {
     echo "$(date +"%Y-%m-%d %H:%M:%S") - $1" | tee -a "$LOGFILE"
 }
 
+# Set proper permissions for the droid home directory
+fix_permissions() {
+    log "Setting full permissions (777) on droid home directory to resolve permission issues..."
+    chmod -R 777 $DROID_HOME
+    log "Permissions set to 777 on $DROID_HOME"
+}
+
 # Check if running as root
 check_root() {
     if [ "$(id -u)" -ne 0 ]; then
@@ -163,6 +170,7 @@ configure_firewall() {
 # Main function
 main() {
     check_root
+    fix_permissions
     validate_params
     harden_ssh
     install_k3s
