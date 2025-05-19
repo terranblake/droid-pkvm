@@ -33,12 +33,16 @@ chmod +x bootstrap.sh
 
 ### 2. Post-Bootstrap Phase (on the pKVM instance)
 
+> **IMPORTANT:** You must copy your SSH public key to the VM before running the setup script. 
+> If you don't have one on the VM already, transfer it using SCP: 
+> `scp -P 2222 ~/.ssh/id_ed25519.pub droid@<vm-ip>:~/my_key.pub`
+
 ```bash
 # Navigate to the cloned repository
 cd ~/droid-pkvm
 
-# Run the setup script with an SSH public key (REQUIRED)
-sudo ./setup.sh ~/.ssh/droid_pkvm.pub [dashboard_port] [glances_port] [nginx_port]
+# Run the setup script with your SSH public key (REQUIRED)
+sudo ./setup.sh ~/my_key.pub [dashboard_port] [glances_port] [nginx_port]
 ```
 
 ### 3. Remote Access
@@ -75,6 +79,8 @@ Parameters (all optional):
 - `wg_client_privkey`: WireGuard client's private key
 
 ### Post-Bootstrap Phase
+
+> **⚠️ SSH Key Transfer Required:** Before running the setup script, you MUST transfer your SSH public key to the VM. This key will be used for secure remote access.
 
 The setup script:
 - Validates and uses your provided SSH public key

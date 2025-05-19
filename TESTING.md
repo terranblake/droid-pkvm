@@ -4,6 +4,16 @@ This document provides guidance on testing the setup and verifying whether the V
 
 ## Testing the Setup
 
+> **CRITICAL STEP:** Between bootstrap and setup phases, you MUST copy your SSH public key to the VM.
+> ```bash
+> # From your local machine
+> scp -P 2222 ~/.ssh/id_ed25519.pub droid@<vm-ip>:~/my_key.pub
+> 
+> # Then on the VM, use this key in the setup script
+> sudo ./setup.sh ~/my_key.pub
+> ```
+> Failing to provide a valid SSH key will result in authentication failures.
+
 ### 1. Testing Bootstrap and Initial Setup
 
 Use these commands to verify the bootstrap phase was successful:
@@ -150,6 +160,18 @@ cat /etc/ssh/sshd_config | grep -i "port\|passwordauth\|pubkeyauth"
 # Check authorized keys
 cat ~/.ssh/authorized_keys
 ```
+
+> **SSH Key Transfer Verification:** Ensure your SSH key was properly transferred to the VM before running the setup script. A common issue is providing an invalid or non-existent key path, which breaks SSH authentication.
+> 
+> If you need to fix SSH after a failed setup:
+> ```bash
+> # Login with password (if still enabled)
+> ssh -p 2222 droid@<vm-ip>
+> 
+> # Fix the authorized_keys file
+> cp ~/.ssh/droid_pkvm.pub ~/.ssh/authorized_keys
+> chmod 600 ~/.ssh/authorized_keys
+> ```
 
 ### 2. Git Repository Issues
 
