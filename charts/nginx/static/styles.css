@@ -1,0 +1,86 @@
+body {
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: Arial, sans-serif;
+  padding: 20px;
+  color: #333;
+  line-height: 1.6;
+}
+
+h1 {
+  color: #3c8f3c;
+  border-bottom: 2px solid #3c8f3c;
+  padding-bottom: 10px;
+}
+
+h2 {
+  color: #336699;
+  margin-top: 30px;
+}
+
+.dashboard-links {
+  background: #f5f5f5;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 30px 0;
+}
+
+.dashboard-links a {
+  display: inline-block;
+  margin-right: 20px;
+  background: #4CAF50;
+  color: white;
+  padding: 10px 15px;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.dashboard-links a:hover {
+  background: #3e8e41;
+}
+
+pre {
+  background: #f8f8f8;
+  border: 1px solid #ddd;
+  padding: 15px;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.android-logo {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.android-logo svg {
+  width: 100px;
+  height: 100px;
+}
+
+.hardware-section {
+  margin-top: 40px;
+}
+
+.hardware-toggle {
+  background: #336699;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.hardware-content {
+  display: none;
+  margin-top: 20px;
+}
+
+.evidence-section {
+  background-color: #fff8e1;
+  border: 1px solid #ffe082;
+  padding: 15px;
+  border-radius: 4px;
+  margin-top: 20px;
+} 
