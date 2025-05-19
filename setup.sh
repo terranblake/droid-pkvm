@@ -22,7 +22,7 @@ log() {
 # Check if running as root
 check_root() {
     if [ "$(id -u)" -ne 0 ]; then
-        log "ERROR: This script must be run as root. Please use sudo or 'sudo su -'"
+        log "ERROR: This script must be run as root. Please use sudo"
         echo "Please run this script as root: sudo ./setup.sh <ssh_pub_key> [dashboard_port] [glances_port] [nginx_port]"
         exit 1
     fi
@@ -77,8 +77,7 @@ harden_ssh() {
     log "Adding local public key to authorized_keys..."
     cat "$SSH_KEYFILE.pub" >> "$DROID_HOME/.ssh/authorized_keys"
     
-    # Set proper ownership and permissions
-    chown -R $DROID_USER:$DROID_USER "$DROID_HOME/.ssh"
+    # Set proper permissions
     chmod 700 "$DROID_HOME/.ssh"
     chmod 600 "$DROID_HOME/.ssh/authorized_keys"
     chmod 600 "$SSH_KEYFILE"
@@ -104,7 +103,7 @@ install_k3s() {
     mkdir -p $DROID_HOME/.kube
     cp /etc/rancher/k3s/k3s.yaml $DROID_HOME/.kube/config
     sed -i "s/127.0.0.1/$(hostname -I | awk '{print $1}')/g" $DROID_HOME/.kube/config
-    chown -R $DROID_USER:$DROID_USER $DROID_HOME/.kube
+    chmod 700 $DROID_HOME/.kube
     chmod 600 $DROID_HOME/.kube/config
     
     # Add KUBECONFIG to user's .bashrc
@@ -379,41 +378,101 @@ main() {
     # Run the remaining functions as the droid user
     log "Switching to droid user for Kubernetes operations..."
     
-    # Set KUBECONFIG environment variable for the droid user
-    export KUBECONFIG=$DROID_HOME/.kube/config
-    
-    # Run the remaining operations with the droid user permissions
-    cd $(dirname "$0")
-    cp -r $(pwd) $DROID_HOME/droid-pkvm-setup
-    chown -R $DROID_USER:$DROID_USER $DROID_HOME/droid-pkvm-setup
-    
-    # Create a wrapper script to run the remaining operations
-    cat > $DROID_HOME/run_setup.sh << EOF
+    # Create a simplified wrapper script to run the remaining operations
+    cat > $DROID_HOME/run_setup.sh << 'EOF'
 #!/bin/bash
-cd $DROID_HOME/droid-pkvm-setup
-export KUBECONFIG=$DROID_HOME/.kube/config
-chmod +x detect_android.sh
+cd $HOME/droid-pkvm
+export KUBECONFIG=$HOME/.kube/config
 
-# Run the remaining functions
-$(declare -f collect_hardware_info)
-$(declare -f deploy_dashboard)
-$(declare -f deploy_glances)
-$(declare -f deploy_nginx)
-$(declare -f run_tests)
+# Run the Kubernetes operations
+./detect_android.sh
+./setup-kubernetes.sh
+EOF
+    
+    # Create a simplified script for the Kubernetes operations
+    cat > $DROID_HOME/droid-pkvm/setup-kubernetes.sh << 'EOF'
+#!/bin/bash
+set -e
+LOGFILE="$(pwd)/setup-kubernetes.log"
 
-collect_hardware_info
-deploy_dashboard
-deploy_glances
-deploy_nginx
-run_tests
+# Function to log messages
+log() {
+    echo "$(date +"%Y-%m-%d %H:%M:%S") - $1" | tee -a "$LOGFILE"
+}
+
+log "Running Kubernetes operations as user $(whoami)..."
+
+# Create namespaces
+kubectl create namespace kubernetes-dashboard || true
+kubectl create namespace monitoring || true
+kubectl create namespace web || true
+
+# Deploy Dashboard
+log "Deploying Kubernetes Dashboard..."
+helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+    --namespace kubernetes-dashboard \
+    --set service.type=NodePort \
+    --set service.nodePort=30443 \
+    --set protocolHttp=true \
+    --set service.externalPort=80 \
+    --set metricsScraper.enabled=true
+
+# Create service account and dashboard admin
+kubectl apply -f - <<YAML
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kubernetes-dashboard
+YAML
+
+kubectl apply -f - <<YAML
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: kubernetes-dashboard
+YAML
+
+# Get token for dashboard access
+kubectl -n kubernetes-dashboard create token admin-user > $HOME/dashboard-token.txt
+chmod 600 $HOME/dashboard-token.txt
+
+# Deploy Glances
+log "Deploying Glances..."
+helm upgrade --install glances ./charts/glances -n monitoring
+
+# Deploy Nginx
+log "Deploying Nginx..."
+helm upgrade --install nginx ./charts/nginx -n web
+
+# Run tests
+log "Running final tests..."
+kubectl get nodes
+kubectl get pods --all-namespaces
+kubectl get svc -n kubernetes-dashboard
+kubectl get svc -n monitoring
+kubectl get svc -n web
+
+log "Kubernetes operations completed successfully!"
 EOF
     
     chmod +x $DROID_HOME/run_setup.sh
-    chown $DROID_USER:$DROID_USER $DROID_HOME/run_setup.sh
+    chmod +x $DROID_HOME/droid-pkvm/setup-kubernetes.sh
     
     # Run the script as droid user
     log "Running Kubernetes operations as droid user..."
     su - $DROID_USER -c "$DROID_HOME/run_setup.sh"
+    
+    # Finalize setup
+    HOST_IP=$(hostname -I | awk '{print $1}')
     
     log "Setup completed successfully!"
     echo "======================================================================"
@@ -426,7 +485,6 @@ EOF
     echo "Make sure to save your private key to access this VM!"
     echo ""
     echo "Services:"
-    HOST_IP=$(hostname -I | awk '{print $1}')
     echo "  Kubernetes Dashboard: http://$HOST_IP:$DASHBOARD_PORT"
     echo "  Glances: http://$HOST_IP:$GLANCES_PORT"
     echo "  Nginx (Hardware Info): http://$HOST_IP:$NGINX_PORT"
