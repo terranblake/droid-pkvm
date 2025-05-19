@@ -197,9 +197,6 @@ clone_repo() {
     # Clone the repository
     git clone https://github.com/terranblake/droid-pkvm.git /home/droid/droid-pkvm
     
-    # Set appropriate permissions
-    chown -R droid:droid /home/droid/droid-pkvm
-    
     log "Repository cloned to /home/droid/droid-pkvm"
 }
 
