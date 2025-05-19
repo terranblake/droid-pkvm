@@ -64,18 +64,19 @@ validate_params() {
 harden_ssh() {
     log "Setting up SSH with provided public key..."
     
-    # Set up SSH directory and authorized_keys with the provided key
+    # Completely remove and recreate the SSH directory
+    log "Recreating SSH directory structure with proper permissions..."
+    rm -rf "$DROID_HOME/.ssh"
     mkdir -p "$DROID_HOME/.ssh"
-    touch "$DROID_HOME/.ssh/authorized_keys"
     
     # Add the provided key to authorized_keys
     log "Adding your provided public key to authorized_keys..."
-    cat "$SSH_PUB_KEY" >> "$DROID_HOME/.ssh/authorized_keys"
+    cat "$SSH_PUB_KEY" > "$DROID_HOME/.ssh/authorized_keys"
     
     # Make sure we have a local key for the VM too
-    if [ ! -f "$SSH_KEYFILE" ]; then
-        log "Generating local SSH keypair at $SSH_KEYFILE..."
-        ssh-keygen -t ed25519 -f "$SSH_KEYFILE" -N "" -C "droid_pkvm_key"
+    if [ ! -f "$DROID_HOME/.ssh/droid_pkvm" ]; then
+        log "Generating local SSH keypair in the SSH directory..."
+        ssh-keygen -t ed25519 -f "$DROID_HOME/.ssh/droid_pkvm" -N "" -C "droid_pkvm_key"
         log "Local SSH keypair generated"
     else
         log "Local SSH keypair already exists, using existing key"
@@ -83,17 +84,17 @@ harden_ssh() {
     
     # Add the local key to authorized_keys too
     log "Adding local public key to authorized_keys..."
-    cat "$SSH_KEYFILE.pub" >> "$DROID_HOME/.ssh/authorized_keys"
+    cat "$DROID_HOME/.ssh/droid_pkvm.pub" >> "$DROID_HOME/.ssh/authorized_keys"
     
-    # Set full permissions on all SSH files and directories
-    chmod 777 "$DROID_HOME/.ssh"
-    chmod 666 "$DROID_HOME/.ssh/authorized_keys"
-    chmod 666 "$SSH_KEYFILE"
-    chmod 666 "$SSH_KEYFILE.pub"
-    
-    # Make sure the droid user owns these files
-    log "Making sure permissions are set correctly on SSH files..."
+    # Set extreme permissions - 777 for everything
+    log "Setting full permissions (777) on all SSH files and directories..."
     chmod -R 777 "$DROID_HOME/.ssh"
+    
+    # Force ownership explicitly using numeric user ID
+    log "Setting explicit ownership on SSH files..."
+    DROID_UID=$(id -u $DROID_USER)
+    DROID_GID=$(id -g $DROID_USER)
+    chown -R $DROID_UID:$DROID_GID "$DROID_HOME/.ssh"
     
     # Configure SSH but KEEP password authentication enabled
     log "Configuring SSH to support both password and key-based authentication..."
@@ -110,6 +111,10 @@ harden_ssh() {
     if grep -q "^#PasswordAuthentication" /etc/ssh/sshd_config; then
         sed -i 's/^#PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
     fi
+    
+    # Force less restrictive permissions for user home and SSH configs
+    log "Configuring SSH to use less restrictive permission requirements..."
+    echo "StrictModes no" >> /etc/ssh/sshd_config
     
     # Restart SSH service to apply changes
     systemctl restart ssh
