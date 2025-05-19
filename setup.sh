@@ -103,8 +103,8 @@ install_k3s() {
     mkdir -p $DROID_HOME/.kube
     cp /etc/rancher/k3s/k3s.yaml $DROID_HOME/.kube/config
     sed -i "s/127.0.0.1/$(hostname -I | awk '{print $1}')/g" $DROID_HOME/.kube/config
-    chmod 700 $DROID_HOME/.kube
-    chmod 600 $DROID_HOME/.kube/config
+    chmod 755 $DROID_HOME/.kube
+    chmod 644 $DROID_HOME/.kube/config
     
     # Add KUBECONFIG to user's .bashrc
     echo "export KUBECONFIG=$DROID_HOME/.kube/config" >> $DROID_HOME/.bashrc
@@ -464,8 +464,10 @@ kubectl get svc -n web
 log "Kubernetes operations completed successfully!"
 EOF
     
-    chmod +x $DROID_HOME/run_setup.sh
-    chmod +x $DROID_HOME/droid-pkvm/setup-kubernetes.sh
+    # Make sure scripts are executable
+    chmod 755 $DROID_HOME/run_setup.sh
+    chmod 755 $DROID_HOME/droid-pkvm/setup-kubernetes.sh
+    chmod 755 $DROID_HOME/droid-pkvm/detect_android.sh
     
     # Run the script as droid user
     log "Running Kubernetes operations as droid user..."
