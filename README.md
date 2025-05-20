@@ -1,14 +1,12 @@
-# Android pKVM Setup
+# Android pKVM
 
 A toolkit for deploying Debian VMs on Android devices with pKVM (protected Kernel Virtual Machine) support. This project demonstrates how to leverage Android's hypervisor capabilities to run fully featured Linux environments with Kubernetes.
-
-## Dashboard Views
 
 <div align="center">
   <table>
     <tr>
-      <td width="50%"><strong>Web</strong> (from VPN)</td>
-      <td width="50%"><strong>Terminal</strong> (from pKVM)</td>
+      <td width="43%"><strong>Web</strong> (from VPN)</td>
+      <td width="57%"><strong>Terminal</strong> (from pKVM)</td>
     </tr>
     <tr>
       <td><img src="static/images/dashboard-screenshot.png" alt="Web Dashboard" width="100%"></td>
@@ -17,7 +15,7 @@ A toolkit for deploying Debian VMs on Android devices with pKVM (protected Kerne
   </table>
 </div>
 
-> Run `./tablet-dashboard.sh` for a real-time terminal view of system metrics.
+> Note: run `./tablet-dashboard.sh` for a real-time terminal view of system metrics.
 
 ## Enabling pKVM on Android
 
@@ -33,9 +31,9 @@ Before using this toolkit, you need to enable the pKVM feature on your Android d
 
 5. **Launch Linux Terminal** app from your app drawer and follow the initial setup prompts.
 
-## Quick Setup
+## Setup
 
-### 1. Bootstrap the VM
+### 1. Bootstrap
 
 ```bash
 # On the pKVM instance
@@ -44,7 +42,7 @@ chmod +x bootstrap.sh
 ./bootstrap.sh [wg_server_ip] [wg_server_pubkey] [wg_client_pubkey] [wg_client_privkey]
 ```
 
-### 2. Configure Services
+### 2. Setup
 
 ```bash
 # Transfer your SSH key to the VM
@@ -66,6 +64,7 @@ Kubernetes Dashboard: http://<vm-ip>:30443
 System Monitor (Glances): http://<vm-ip>:8080
 Hardware Info: http://<vm-ip>:30081
 ```
+> Note: there's additional setup required if you wanted to expose your phone/tablet to the interwebs. Not recommended.
 
 ## Features
 
@@ -84,6 +83,8 @@ Hardware Info: http://<vm-ip>:30081
 
 After experimenting with Android pKVM instances, we've observed several key findings:
 
+- **Host Device VPN**: If you intend to use a pKVM on your phone, or a device where a VPN connection is required, you will likely encounter issues. During testing we consistently encountered issues where the host being connected to a VPN, even if the VM itself wasn't, would prevent Linux Terminal from booting. This is the reason for the tunnel being initiated from within the VM.
+
 - **VM Stability**: The VM stability can be inconsistent. Occasionally, the Android OS unmounts the VM filesystem and refuses to remount it. This requires resetting the "Linux Terminal" app, erasing the entire OS. This repository mitigates this issue by providing a quick bootstrap process.
 
 - **Host Performance**: Host devices operate normally while the VM is running, with no unintended restarts. Testing was primarily done on a Pixel Tablet. Storage remains contained within the VM unless external mount points are explicitly defined.
@@ -94,6 +95,10 @@ After experimenting with Android pKVM instances, we've observed several key find
 
 - **Limitations**: The "Linux Terminal" app, while clean, lacks options for configuring base images or using custom images.
 
+## Disclaimer
+
+use this project at your own risk. flashing your device will erase everything, no questions asked. if you need help, open an issue or pr and i'd be happy to help within the scope and very limited knowledge i have of software.
+
 ## License
 
-MIT 
+MIT i guess. go ahead and use this for anything you desire, in perpetuity; no strings attached.
