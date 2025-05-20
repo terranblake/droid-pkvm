@@ -2,7 +2,13 @@
 
 A toolkit for deploying Debian VMs on Android devices with pKVM (protected Kernel Virtual Machine) support. This project demonstrates how to leverage Android's hypervisor capabilities to run fully featured Linux environments with Kubernetes.
 
+## Dashboard Views
+
+**Web Dashboard:**  
 ![Android pKVM Dashboard View](static/images/dashboard-screenshot.png)
+
+**Terminal Dashboard:**  
+Run `./tablet-dashboard.sh` for a real-time terminal view of system metrics.
 
 ## Enabling pKVM on Android
 
