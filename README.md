@@ -2,6 +2,10 @@
 
 This repository contains scripts and configurations to set up a Debian virtual machine running on an Android device with pKVM (protected Kernel Virtual Machine) support. The setup includes optional WireGuard VPN, SSH access, Kubernetes (k3s), and monitoring tools.
 
+The purpose of this repository is to demonstrate how to use the recent mainline android pKVMs and develop a bootstrapping process for them that makes it simple to deploy effectively anything on the devices that support the android hypervisor.
+
+![Android pKVM Dashboard View](static/images/Screenshot%202025-05-19%20at%208.46.06%20PM.png)
+
 ## Overview
 
 The setup is split into two main phases:
