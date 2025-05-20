@@ -40,6 +40,53 @@ kubectl create namespace kubernetes-dashboard 2>/dev/null || log "Namespace kube
 kubectl create namespace monitoring 2>/dev/null || log "Namespace monitoring already exists"
 kubectl create namespace web 2>/dev/null || log "Namespace web already exists"
 
+# Prepare hardware info for the Nginx dashboard
+log "Preparing hardware information for the dashboard..."
+mkdir -p charts/nginx/templates/hardware
+
+# Extract CPU information
+log "Extracting CPU information..."
+cat /proc/cpuinfo > charts/nginx/templates/hardware/cpuinfo.txt
+
+# Convert Android evidence to HTML
+log "Converting Android evidence to HTML..."
+if [ -f "android_evidence.txt" ]; then
+    cat android_evidence.txt | sed 's/$/<br>/' | sed 's/^=/=/g' | sed 's/===/\<h3\>/g' | sed 's/==/\<h4\>/g' > charts/nginx/templates/hardware/android_evidence.html
+    log "Android evidence converted to HTML format"
+else
+    echo "<p>Android evidence file not found. Please run detect_android.sh first.</p>" > charts/nginx/templates/hardware/android_evidence.html
+    log "WARNING: android_evidence.txt not found"
+fi
+
+# Create ConfigMap for hardware info
+log "Creating ConfigMap for hardware information..."
+kubectl create configmap -n web hardware-info \
+    --from-file=charts/nginx/templates/hardware/cpuinfo.txt \
+    --from-file=charts/nginx/templates/hardware/android_evidence.html \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+# Update the Nginx Deployment to mount hardware info
+log "Updating Nginx Deployment to include hardware info..."
+cat > /tmp/nginx-deployment-patch.yaml <<EOF
+spec:
+  template:
+    spec:
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: nginx-config
+      - name: hardware-info
+        configMap:
+          name: hardware-info
+      containers:
+      - name: nginx
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /usr/share/nginx/html/
+        - name: hardware-info
+          mountPath: /usr/share/nginx/html/hardware/
+EOF
+
 # Check if Dashboard is already deployed
 log "Checking if Kubernetes Dashboard is already deployed..."
 if kubectl get deployment -n kubernetes-dashboard kubernetes-dashboard-web &>/dev/null; then
@@ -122,11 +169,13 @@ log "Checking if Nginx is already deployed..."
 if kubectl get deployment -n web nginx &>/dev/null; then
     log "Nginx is already deployed, updating if needed..."
     # Update Nginx to ensure it has the latest configuration
+    kubectl patch deployment nginx -n web --patch "$(cat /tmp/nginx-deployment-patch.yaml)" || log "ERROR: Failed to patch Nginx deployment"
     helm upgrade --install nginx ./charts/nginx -n web || log "ERROR: Failed to upgrade Nginx"
 else
     # Deploy Nginx
     log "Deploying Nginx..."
     helm upgrade --install nginx ./charts/nginx -n web || log "ERROR: Failed to deploy Nginx"
+    kubectl patch deployment nginx -n web --patch "$(cat /tmp/nginx-deployment-patch.yaml)" || log "ERROR: Failed to patch Nginx deployment"
 fi
 
 # Run tests
