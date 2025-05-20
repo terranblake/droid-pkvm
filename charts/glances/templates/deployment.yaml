@@ -18,6 +18,7 @@ spec:
       - name: glances
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command: ["glances"]
         args: ["-w"]
         ports:
         - containerPort: 61208
