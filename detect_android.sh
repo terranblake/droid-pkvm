@@ -3,12 +3,10 @@
 # Android pKVM Detection Script
 # This script checks for definitive evidence of running on Android
 
-# Use temporary directory for intermediate files to avoid permission issues
-TEMP_DIR=$(mktemp -d)
-OUTPUT_FILE="$TEMP_DIR/android_evidence.txt"
-HTML_OUTPUT="$TEMP_DIR/android_evidence_dashboard.html"
-FINAL_OUTPUT="android_evidence.txt"
-FINAL_HTML="android_evidence_dashboard.html"
+OUTPUT_FILE="android_evidence.txt"
+
+# Make sure any existing files are writable before we start
+touch $OUTPUT_FILE && chmod 644 $OUTPUT_FILE
 
 echo "===== Android pKVM Detection Summary =====" > $OUTPUT_FILE
 echo "Date: $(date)" >> $OUTPUT_FILE
@@ -115,8 +113,11 @@ fi
 
 echo "CONCLUSION: $CONCLUSION" >> $OUTPUT_FILE
 
+# Make sure HTML file is writable
+touch android_evidence_dashboard.html && chmod 644 android_evidence_dashboard.html
+
 # Create a concise HTML version for dashboard display
-cat > $HTML_OUTPUT << EOF
+cat > android_evidence_dashboard.html << EOF
 <!DOCTYPE html>
 <html>
 <head>
@@ -169,30 +170,23 @@ EOF
 # Add evidence bullets to the dashboard
 if [ ${#EVIDENCE_BULLETS[@]} -gt 0 ]; then
     for bullet in "${EVIDENCE_BULLETS[@]}"; do
-        echo "<div class='evidence-item'>✓ $bullet</div>" >> $HTML_OUTPUT
+        echo "<div class='evidence-item'>✓ $bullet</div>" >> android_evidence_dashboard.html
     done
 else
-    echo "<p class='no-evidence'>No conclusive Android evidence was found. This is probably not an Android environment.</p>" >> $HTML_OUTPUT
+    echo "<p class='no-evidence'>No conclusive Android evidence was found. This is probably not an Android environment.</p>" >> android_evidence_dashboard.html
 fi
 
 # Add the conclusion with evidence count
-echo "<div class='conclusion'><span class='evidence-count'>$EVIDENCE_COUNT</span> $CONCLUSION</div>" >> $HTML_OUTPUT
+echo "<div class='conclusion'><span class='evidence-count'>$EVIDENCE_COUNT</span> $CONCLUSION</div>" >> android_evidence_dashboard.html
 
 # Close the HTML
-cat >> $HTML_OUTPUT << EOF
+cat >> android_evidence_dashboard.html << EOF
 </body>
 </html>
 EOF
 
-# Copy the files to their final locations
-cp $OUTPUT_FILE $FINAL_OUTPUT
-cp $HTML_OUTPUT $FINAL_HTML
+# Ensure files have the right permissions
+chmod 644 $OUTPUT_FILE android_evidence_dashboard.html
 
-# Set proper permissions so anyone can read them
-chmod 644 $FINAL_OUTPUT $FINAL_HTML
-
-# Clean up temporary files
-rm -rf $TEMP_DIR
-
-echo "File saved to: $FINAL_OUTPUT" 
-echo "Dashboard summary saved to: $FINAL_HTML" 
+echo "File saved to: $OUTPUT_FILE" 
+echo "Dashboard summary saved to: android_evidence_dashboard.html" 
