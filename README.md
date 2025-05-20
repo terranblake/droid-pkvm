@@ -4,10 +4,19 @@ A toolkit for deploying Debian VMs on Android devices with pKVM (protected Kerne
 
 ## Dashboard Views
 
-**Web Dashboard:**  
-![Android pKVM Dashboard View](static/images/dashboard-screenshot.png)
+<div align="center">
+  <table>
+    <tr>
+      <td width="50%"><strong>Web Dashboard</strong></td>
+      <td width="50%"><strong>Terminal Dashboard</strong></td>
+    </tr>
+    <tr>
+      <td><img src="static/images/dashboard-screenshot.png" alt="Web Dashboard" width="100%"></td>
+      <td><img src="static/images/tablet-dashboard-screenshot.png" alt="Terminal Dashboard" width="100%"></td>
+    </tr>
+  </table>
+</div>
 
-**Terminal Dashboard:**  
 Run `./tablet-dashboard.sh` for a real-time terminal view of system metrics.
 
 ## Enabling pKVM on Android
