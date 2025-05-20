@@ -28,37 +28,33 @@ function updateDashboardUrls() {
   const dashboardPort = DASHBOARD_PORT;
   const glancesPort = GLANCES_PORT;
   
-  document.getElementById('dashboard-link').href = `http://${hostIp}:${dashboardPort}`;
+  document.getElementById('kubernetes-link').href = `http://${hostIp}:${dashboardPort}`;
   document.getElementById('glances-link').href = `http://${hostIp}:${glancesPort}`;
-}
-
-// Load hardware info into the page
-function loadHardwareInfo() {
-  fetch('hardware/cpuinfo.txt')
-    .then(response => response.text())
-    .then(data => {
-      document.getElementById('cpu-info').innerHTML = `<h3>CPU Information</h3><pre>${data}</pre>`;
-    })
-    .catch(error => {
-      document.getElementById('cpu-info').innerHTML = '<p>Error loading CPU information</p>';
-    });
 }
 
 // Load Android evidence
 function loadAndroidEvidence() {
-  fetch('hardware/android_evidence.html')
+  fetch('hardware/android_evidence_dashboard.html')
     .then(response => response.text())
     .then(data => {
       document.getElementById('android-evidence').innerHTML = data;
     })
     .catch(error => {
-      document.getElementById('android-evidence').innerHTML = '<p>Error loading Android evidence</p>';
+      // Fallback to regular evidence file if dashboard version not found
+      fetch('hardware/android_evidence.html')
+        .then(response => response.text())
+        .then(data => {
+          document.getElementById('android-evidence').innerHTML = data;
+        })
+        .catch(err => {
+          document.getElementById('android-evidence').innerHTML = 
+            '<p>Error loading Android evidence. Please run detect_android.sh on the VM.</p>';
+        });
     });
 }
 
 // Initialize the page
 document.addEventListener('DOMContentLoaded', function() {
   updateDashboardUrls();
-  loadHardwareInfo();
   loadAndroidEvidence();
 }); 

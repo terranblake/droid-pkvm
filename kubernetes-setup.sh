@@ -40,16 +40,27 @@ kubectl create namespace kubernetes-dashboard 2>/dev/null || log "Namespace kube
 kubectl create namespace monitoring 2>/dev/null || log "Namespace monitoring already exists"
 kubectl create namespace web 2>/dev/null || log "Namespace web already exists"
 
+# Run the Android detection script to ensure we have the latest evidence
+log "Running Android detection to gather latest evidence..."
+# Only run if it exists and is executable
+if [ -x ./detect_android.sh ]; then
+    ./detect_android.sh
+    log "Android detection complete"
+else
+    log "WARNING: detect_android.sh not found or not executable"
+fi
+
 # Prepare hardware info for the Nginx dashboard
 log "Preparing hardware information for the dashboard..."
 mkdir -p /tmp/hardware
 
-# Extract CPU information
-log "Extracting CPU information..."
-cat /proc/cpuinfo > /tmp/hardware/cpuinfo.txt
+# Copy Android evidence to the hardware folder
+log "Copying Android evidence to hardware folder..."
+if [ -f "android_evidence_dashboard.html" ]; then
+    cp android_evidence_dashboard.html /tmp/hardware/android_evidence_dashboard.html
+    log "Dashboard-specific Android evidence copied"
+fi
 
-# Convert Android evidence to HTML
-log "Converting Android evidence to HTML..."
 if [ -f "android_evidence.txt" ]; then
     # Create a clean HTML version with proper formatting
     cat > /tmp/hardware/android_evidence.html << EOF
@@ -80,8 +91,8 @@ fi
 # Create ConfigMap for hardware info
 log "Creating ConfigMap for hardware information..."
 kubectl create configmap -n web hardware-info \
-    --from-file=/tmp/hardware/cpuinfo.txt \
     --from-file=/tmp/hardware/android_evidence.html \
+    --from-file=/tmp/hardware/android_evidence_dashboard.html \
     --dry-run=client -o yaml | kubectl apply -f -
 
 # Check if Dashboard is already deployed
