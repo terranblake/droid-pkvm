@@ -4,6 +4,9 @@
 # This script displays various system and Kubernetes metrics
 # in a format optimized for portrait orientation
 
+# Set terminal properties
+export TERM=xterm-256color
+
 # Set terminal colors
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
@@ -44,6 +47,6 @@ echo -e "${YELLOW}IP Address:${NC}"
 ip addr show | grep -E 'inet ' | grep -v '127.0.0.1' | awk '{print $2}'
 
 echo -e "\n${YELLOW}Open Ports:${NC}"
-netstat -tulpn 2>/dev/null | grep -E 'tcp.*LISTEN' | grep -v '127.0.0.1' | grep -v 'tcp6' | awk '{print $4}' | sort | head -n 5
+ss -tulpn | grep LISTEN | grep -v 127.0.0.1 | awk '{print $5}' | sort | head -n 5 || echo "No open ports found"
 
 echo -e "\n${BLUE}${BOLD}==== Refresh with: ./tablet-dashboard.sh ====${NC}" 
