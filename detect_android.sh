@@ -3,7 +3,12 @@
 # Android pKVM Detection Script
 # This script checks for definitive evidence of running on Android
 
-OUTPUT_FILE="android_evidence.txt"
+# Use temporary directory for intermediate files to avoid permission issues
+TEMP_DIR=$(mktemp -d)
+OUTPUT_FILE="$TEMP_DIR/android_evidence.txt"
+HTML_OUTPUT="$TEMP_DIR/android_evidence_dashboard.html"
+FINAL_OUTPUT="android_evidence.txt"
+FINAL_HTML="android_evidence_dashboard.html"
 
 echo "===== Android pKVM Detection Summary =====" > $OUTPUT_FILE
 echo "Date: $(date)" >> $OUTPUT_FILE
@@ -109,10 +114,9 @@ else
 fi
 
 echo "CONCLUSION: $CONCLUSION" >> $OUTPUT_FILE
-echo "File saved to: $OUTPUT_FILE" 
 
 # Create a concise HTML version for dashboard display
-cat > android_evidence_dashboard.html << EOF
+cat > $HTML_OUTPUT << EOF
 <!DOCTYPE html>
 <html>
 <head>
@@ -165,19 +169,30 @@ EOF
 # Add evidence bullets to the dashboard
 if [ ${#EVIDENCE_BULLETS[@]} -gt 0 ]; then
     for bullet in "${EVIDENCE_BULLETS[@]}"; do
-        echo "<div class='evidence-item'>✓ $bullet</div>" >> android_evidence_dashboard.html
+        echo "<div class='evidence-item'>✓ $bullet</div>" >> $HTML_OUTPUT
     done
 else
-    echo "<p class='no-evidence'>No conclusive Android evidence was found. This is probably not an Android environment.</p>" >> android_evidence_dashboard.html
+    echo "<p class='no-evidence'>No conclusive Android evidence was found. This is probably not an Android environment.</p>" >> $HTML_OUTPUT
 fi
 
 # Add the conclusion with evidence count
-echo "<div class='conclusion'><span class='evidence-count'>$EVIDENCE_COUNT</span> $CONCLUSION</div>" >> android_evidence_dashboard.html
+echo "<div class='conclusion'><span class='evidence-count'>$EVIDENCE_COUNT</span> $CONCLUSION</div>" >> $HTML_OUTPUT
 
 # Close the HTML
-cat >> android_evidence_dashboard.html << EOF
+cat >> $HTML_OUTPUT << EOF
 </body>
 </html>
 EOF
 
-echo "Dashboard summary saved to: android_evidence_dashboard.html" 
+# Copy the files to their final locations
+cp $OUTPUT_FILE $FINAL_OUTPUT
+cp $HTML_OUTPUT $FINAL_HTML
+
+# Set proper permissions so anyone can read them
+chmod 644 $FINAL_OUTPUT $FINAL_HTML
+
+# Clean up temporary files
+rm -rf $TEMP_DIR
+
+echo "File saved to: $FINAL_OUTPUT" 
+echo "Dashboard summary saved to: $FINAL_HTML" 
