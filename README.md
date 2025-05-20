@@ -76,7 +76,7 @@ ssh -i ~/.ssh/your_key -p 2222 droid@<vm-ip>
 - [Testing](static/markdown/TESTING.md) - Detailed testing procedures and troubleshooting
 - [Charts](charts/) - Helm charts for deployed services
 
-## Conclusions
+## Observations
 
 - **Host Device VPN**: If you intend to use a pKVM on your phone, or a device where a VPN connection is required, you will likely encounter issues. During testing we consistently encountered issues where the host being connected to a VPN, even if the VM itself wasn't, would prevent Linux Terminal from booting. This is the reason for the tunnel being initiated from within the VM.
 
@@ -89,6 +89,12 @@ ssh -i ~/.ssh/your_key -p 2222 droid@<vm-ip>
   - Android 16 specifically allocates 4GB of RAM (out of 8GB) to the VM
 
 - **Limitations**: The "Linux Terminal" app, while clean, lacks options for configuring base images or using custom images.
+
+## Conclusion
+
+> its a fun toy. im an optimist for software that has a niche application by design, but enables others to do fun an interesting things they couldn't do before. a vm in everybody's pocket that enables them to easily learn about the interaction between software and hardware, without worrying about the specifics of where that code runs, will be a game changer. 
+> 
+> ultimately, im very excited by the recent progress in the mobile/edge space when it comes to virtualization and enabling truly uniform deployment environments in every modality. we're certainly not at production-grade maturity levels, or integrated enough to support this persistent dream of mine to have every single phone available as a secure deployment node, but damn is it cool to use the exact same tools to deploy code across laptops, phones, tablets, servers, all without ever thinking about a terminal emulator.
 
 ## Disclaimer
 
