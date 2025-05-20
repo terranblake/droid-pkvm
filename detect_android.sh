@@ -72,21 +72,18 @@ if command -v getprop &> /dev/null; then
     fi
 fi
 
-# Check for Android system directory (strong indicator)
-if [ -d "/system" ]; then
-    add_evidence "Android /system directory exists"
-    
-    if [ -f "/system/build.prop" ]; then
-        echo "  Found Android build.prop file" >> $OUTPUT_FILE
-        # Only show product info, not the whole file
-        PRODUCT_INFO=$(grep -i "ro.product" /system/build.prop 2>/dev/null | head -2)
-        [ -n "$PRODUCT_INFO" ] && echo "  Product info: $PRODUCT_INFO" >> $OUTPUT_FILE
-    fi
+# Check for Android system directory with build.prop (strong indicator)
+# Note: Just /system by itself isn't sufficient as macOS also has this
+if [ -f "/system/build.prop" ]; then
+    add_evidence "Android build.prop file in /system directory"
+    # Only show product info, not the whole file
+    PRODUCT_INFO=$(grep -i "ro.product" /system/build.prop 2>/dev/null | head -2)
+    [ -n "$PRODUCT_INFO" ] && echo "  Product info: $PRODUCT_INFO" >> $OUTPUT_FILE
 fi
 
 # Check for Android vendor directory
-if [ -d "/vendor" ]; then
-    add_evidence "Android /vendor directory exists"
+if [ -d "/vendor" ] && [ -f "/vendor/build.prop" ]; then
+    add_evidence "Android /vendor directory with build.prop"
 fi
 
 # Only check dmesg for specific Android/AVF references 
@@ -108,7 +105,7 @@ if [ $EVIDENCE_COUNT -ge 3 ]; then
 elif [ $EVIDENCE_COUNT -ge 1 ]; then
     CONCLUSION="This is likely running on Android (found $EVIDENCE_COUNT pieces of evidence)"
 else
-    CONCLUSION="Could not definitively determine if this is running on Android"
+    CONCLUSION="No Android evidence found. This is probably not running on Android."
 fi
 
 echo "CONCLUSION: $CONCLUSION" >> $OUTPUT_FILE
@@ -151,6 +148,14 @@ cat > android_evidence_dashboard.html << EOF
       line-height: 24px;
       margin-right: 10px;
     }
+    .no-evidence {
+      background-color: #f5f5f5;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 15px;
+      color: #666;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
@@ -163,7 +168,7 @@ if [ ${#EVIDENCE_BULLETS[@]} -gt 0 ]; then
         echo "<div class='evidence-item'>✓ $bullet</div>" >> android_evidence_dashboard.html
     done
 else
-    echo "<p>No conclusive Android evidence was found.</p>" >> android_evidence_dashboard.html
+    echo "<p class='no-evidence'>No conclusive Android evidence was found. This is probably not an Android environment.</p>" >> android_evidence_dashboard.html
 fi
 
 # Add the conclusion with evidence count
