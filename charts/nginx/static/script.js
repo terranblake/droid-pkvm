@@ -34,21 +34,37 @@ function updateDashboardUrls() {
 
 // Load Android evidence
 function loadAndroidEvidence() {
+  const evidenceContainer = document.getElementById('android-evidence');
+  evidenceContainer.innerHTML = '<div class="loading">Loading evidence...</div>';
+  
   fetch('hardware/android_evidence_dashboard.html')
-    .then(response => response.text())
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Failed to load dashboard evidence');
+      }
+      return response.text();
+    })
     .then(data => {
-      document.getElementById('android-evidence').innerHTML = data;
+      evidenceContainer.innerHTML = data;
     })
     .catch(error => {
+      console.error('Error loading dashboard evidence:', error);
+      
       // Fallback to regular evidence file if dashboard version not found
       fetch('hardware/android_evidence.html')
-        .then(response => response.text())
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Failed to load evidence');
+          }
+          return response.text();
+        })
         .then(data => {
-          document.getElementById('android-evidence').innerHTML = data;
+          evidenceContainer.innerHTML = data;
         })
         .catch(err => {
-          document.getElementById('android-evidence').innerHTML = 
-            '<p>Error loading Android evidence. Please run detect_android.sh on the VM.</p>';
+          console.error('Error loading evidence:', err);
+          evidenceContainer.innerHTML = 
+            '<div class="error">Error loading Android evidence. Please run detect_android.sh on the VM.</div>';
         });
     });
 }
@@ -57,4 +73,12 @@ function loadAndroidEvidence() {
 document.addEventListener('DOMContentLoaded', function() {
   updateDashboardUrls();
   loadAndroidEvidence();
+  
+  // Add event listeners for button hover effects
+  const buttons = document.querySelectorAll('.primary-button');
+  buttons.forEach(button => {
+    button.addEventListener('mouseenter', () => {
+      button.style.transition = 'all 0.3s ease';
+    });
+  });
 }); 
