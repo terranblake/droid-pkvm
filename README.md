@@ -21,7 +21,7 @@ A toolkit for deploying Debian VMs on Android devices with _pKVM_ ([protected Ke
 
 Before using this toolkit, you need to enable the pKVM feature on your Android device:
 
-1. **(Recommended for stability)** Flash the latest Android 16 release by downloading and flashing the image from [Android 16 download page](https://developer.android.com/about/versions/16/download). Note: Android 16 is still in beta as of May 19th, 2025.
+1. (recommended) **Flash the latest Android 16 release** by downloading and flashing the image from [Android 16 download page](https://developer.android.com/about/versions/16/download). Note: Android 16 is still in beta as of May 19th, 2025.
 
 2. **Enable Developer Options** by going to Settings > About phone and tapping the build number 7 times.
 
