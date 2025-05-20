@@ -72,7 +72,7 @@ ss -tuln | grep -E "30443|8080|30081"
 The easiest way to check is by running the included detection script:
 
 ```bash
-./scripts/detect_android.sh
+./utils/detect_android.sh
 ```
 
 This will create a file `android_evidence.txt` with detailed information about the environment.

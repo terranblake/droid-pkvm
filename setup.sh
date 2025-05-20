@@ -272,7 +272,7 @@ main() {
     
     # Run Android detection as root for proper dmesg access
     log "Running Android detection script..."
-    ./scripts/detect_android.sh
+    ./utils/detect_android.sh
     
     # Run Kubernetes setup as droid user with proper environment
     log "Running Kubernetes operations as droid user..."
