@@ -55,6 +55,20 @@ Hardware Info: http://<vm-ip>:30081
 - [Testing Guide](TESTING.md) - Detailed testing procedures and troubleshooting
 - [Charts](charts/) - Helm charts for deployed services
 
+## Conclusions
+
+After experimenting with Android pKVM instances, we've observed several key findings:
+
+- **VM Stability**: The VM stability can be inconsistent. Occasionally, the Android OS unmounts the VM filesystem and refuses to remount it. This requires resetting the "Linux Terminal" app, erasing the entire OS. This repository mitigates this issue by providing a quick bootstrap process.
+
+- **Host Performance**: Host devices operate normally while the VM is running, with no unintended restarts. Testing was primarily done on a Pixel Tablet. Storage remains contained within the VM unless external mount points are explicitly defined.
+
+- **Resource Allocation**: 
+  - Android 16+ can dedicate almost the entire storage space to the VM
+  - Android 16 specifically allocates 4GB of RAM (out of 8GB) to the VM
+
+- **Limitations**: The "Linux Terminal" app, while clean, lacks options for configuring base images or using custom images.
+
 ## License
 
 MIT 
