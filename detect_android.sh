@@ -3,10 +3,10 @@
 # Android pKVM Detection Script
 # This script checks for definitive evidence of running on Android
 
-OUTPUT_FILE="android_evidence.txt"
-
-# Make sure any existing files are writable before we start
-touch $OUTPUT_FILE && chmod 644 $OUTPUT_FILE
+# Use the home directory to ensure we have write permissions
+OUTPUT_DIR="$HOME"
+OUTPUT_FILE="$OUTPUT_DIR/android_evidence.txt"
+DASHBOARD_FILE="$OUTPUT_DIR/android_evidence_dashboard.html"
 
 echo "===== Android pKVM Detection Summary =====" > $OUTPUT_FILE
 echo "Date: $(date)" >> $OUTPUT_FILE
@@ -113,11 +113,8 @@ fi
 
 echo "CONCLUSION: $CONCLUSION" >> $OUTPUT_FILE
 
-# Make sure HTML file is writable
-touch android_evidence_dashboard.html && chmod 644 android_evidence_dashboard.html
-
 # Create a concise HTML version for dashboard display
-cat > android_evidence_dashboard.html << EOF
+cat > $DASHBOARD_FILE << EOF
 <!DOCTYPE html>
 <html>
 <head>
@@ -170,23 +167,33 @@ EOF
 # Add evidence bullets to the dashboard
 if [ ${#EVIDENCE_BULLETS[@]} -gt 0 ]; then
     for bullet in "${EVIDENCE_BULLETS[@]}"; do
-        echo "<div class='evidence-item'>✓ $bullet</div>" >> android_evidence_dashboard.html
+        echo "<div class='evidence-item'>✓ $bullet</div>" >> $DASHBOARD_FILE
     done
 else
-    echo "<p class='no-evidence'>No conclusive Android evidence was found. This is probably not an Android environment.</p>" >> android_evidence_dashboard.html
+    echo "<p class='no-evidence'>No conclusive Android evidence was found. This is probably not an Android environment.</p>" >> $DASHBOARD_FILE
 fi
 
 # Add the conclusion with evidence count
-echo "<div class='conclusion'><span class='evidence-count'>$EVIDENCE_COUNT</span> $CONCLUSION</div>" >> android_evidence_dashboard.html
+echo "<div class='conclusion'><span class='evidence-count'>$EVIDENCE_COUNT</span> $CONCLUSION</div>" >> $DASHBOARD_FILE
 
 # Close the HTML
-cat >> android_evidence_dashboard.html << EOF
+cat >> $DASHBOARD_FILE << EOF
 </body>
 </html>
 EOF
 
-# Ensure files have the right permissions
-chmod 644 $OUTPUT_FILE android_evidence_dashboard.html
+# Copy results to expected paths if we have permission
+if [ -w "$(pwd)" ]; then
+    cp $OUTPUT_FILE "$(pwd)/android_evidence.txt" 2>/dev/null
+    cp $DASHBOARD_FILE "$(pwd)/android_evidence_dashboard.html" 2>/dev/null
+    echo "Files saved to current directory ($(pwd))"
+else
+    echo "Files saved to home directory ($HOME)"
+fi
 
 echo "File saved to: $OUTPUT_FILE" 
-echo "Dashboard summary saved to: android_evidence_dashboard.html" 
+echo "Dashboard summary saved to: $DASHBOARD_FILE"
+
+# Create symlinks for the kubernetes-setup.sh script to find the files
+ln -sf $OUTPUT_FILE /tmp/android_evidence.txt 2>/dev/null
+ln -sf $DASHBOARD_FILE /tmp/android_evidence_dashboard.html 2>/dev/null 
