@@ -4,7 +4,7 @@ This repository contains scripts and configurations to set up a Debian virtual m
 
 The purpose of this repository is to demonstrate how to use the recent mainline android pKVMs and develop a bootstrapping process for them that makes it simple to deploy effectively anything on the devices that support the android hypervisor.
 
-![Android pKVM Dashboard View](static/images/Screenshot%202025-05-19%20at%208.46.06%20PM.png)
+![Android pKVM Dashboard View](static/images/dashboard-screenshot.png)
 
 ## Overview
 
