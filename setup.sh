@@ -272,11 +272,11 @@ main() {
     
     # Run Android detection as root for proper dmesg access
     log "Running Android detection script..."
-    ./detect_android.sh
+    ./scripts/detect_android.sh
     
     # Run Kubernetes setup as droid user with proper environment
     log "Running Kubernetes operations as droid user..."
-    su - $DROID_USER -c "cd $DROID_HOME/droid-pkvm && KUBECONFIG=$DROID_HOME/.kube/config ./kubernetes-setup.sh"
+    su - $DROID_USER -c "cd $DROID_HOME/droid-pkvm && KUBECONFIG=$DROID_HOME/.kube/config ./utils/kubernetes-setup.sh"
     
     # Finalize setup
     HOST_IP=$(hostname -I | awk '{print $1}')

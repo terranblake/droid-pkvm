@@ -50,8 +50,7 @@ curl -O https://raw.githubusercontent.com/terranblake/droid-pkvm/main/bootstrap.
 scp -P 2222 ~/.ssh/id_ed25519.pub droid@<vm-ip>:~/my_key.pub
 
 # On the VM, run setup
-cd ~/droid-pkvm
-sudo ./setup.sh ~/my_key.pub
+cd ~/droid-pkvm && sudo ./setup.sh ~/my_key.pub
 ```
 
 ### 3. Access
@@ -72,7 +71,7 @@ ssh -i ~/.ssh/your_key -p 2222 droid@<vm-ip>
 
 ## Documentation
 
-- [Testing Guide](TESTING.md) - Detailed testing procedures and troubleshooting
+- [Testing](static/markdown/TESTING.md) - Detailed testing procedures and troubleshooting
 - [Charts](charts/) - Helm charts for deployed services
 
 ## Conclusions
