@@ -4,9 +4,19 @@ A toolkit for deploying Debian VMs on Android devices with pKVM (protected Kerne
 
 ![Android pKVM Dashboard View](static/images/dashboard-screenshot.png)
 
-## Purpose
+## Enabling pKVM on Android
 
-This repository provides a bootstrapping process for Android pKVM instances, making it simple to deploy containerized applications on Android devices with hypervisor support.
+Before using this toolkit, you need to enable the pKVM feature on your Android device:
+
+1. **(Recommended for stability)** Flash the latest Android 16 release by downloading and flashing the image from [Android 16 download page](https://developer.android.com/about/versions/16/download). Note: Android 16 is still in beta as of May 19th, 2025.
+
+2. **Enable Developer Options** by going to Settings > About phone and tapping the build number 7 times.
+
+3. **Enable USB Debugging** in the newly available Developer Options menu.
+
+4. **Toggle Linux Terminal** (experimental) in Developer Options. This enables the pKVM functionality.
+
+5. **Launch Linux Terminal** app from your app drawer and follow the initial setup prompts.
 
 ## Quick Setup
 
